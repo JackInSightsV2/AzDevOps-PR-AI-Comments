@@ -37,7 +37,7 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@google-cloud/vertexai": "^1.9.3",
     "axios": "^1.8.3",
-    "azure-devops-extension-api": "^4.249.0",
+    "azure-devops-extension-api": "^4.248.1",
     "azure-devops-extension-sdk": "^4.0.0",
     "azure-devops-node-api": "^14.1.0",
     "azure-devops-ui": "^2.167.76",
