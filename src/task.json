@@ -1,6 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
-    "id": "aab8e9e5-4dbf-40a6-ae9b-408c73a2e8e9",
+    "id": "a0f19c3b-c2ec-415c-b8ea-c5e2b31806bc",
     "name": "prAiProvider",
     "friendlyName": "AI Powered PR Comments",
     "description": "Adds AI Comment to Pull Requests in Azure DevOps",
