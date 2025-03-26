@@ -1,0 +1,50 @@
+{
+  "name": "azure-devops-extension-ai-generated-pr-comments",
+  "version": "0.1.0",
+  "description": "Azure DevOps Extension for AI Generated PR Comments",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "node scripts/clean.js",
+    "build": "npm run clean && npx tsc && npm run copy-task-json && npm run copy-node-modules",
+    "copy-node-modules": "node scripts/copy-modules.js",
+    "copy-task-json": "node scripts/copy-task.js",
+    "dev": "webpack-dev-server --mode development"
+  },
+  "keywords": [
+    "azure-devops",
+    "extension",
+    "pull-request",
+    "ai",
+    "comments"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.67",
+    "@types/react-dom": "^18.2.22",
+    "css-loader": "^7.1.0",
+    "html-webpack-plugin": "^5.6.0",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.2",
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google-cloud/vertexai": "^1.9.3",
+    "axios": "^1.8.3",
+    "azure-devops-extension-api": "^4.249.0",
+    "azure-devops-extension-sdk": "^4.0.0",
+    "azure-devops-node-api": "^14.1.0",
+    "azure-devops-ui": "^2.167.76",
+    "azure-pipelines-task-lib": "^5.0.0",
+    "fs": "^0.0.1-security",
+    "openai": "^4.87.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

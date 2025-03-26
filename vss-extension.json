@@ -1,0 +1,65 @@
+{
+    "manifestVersion": 1,
+    "id": "DevOps-AI-PR-Extension",
+    "publisher": "ByteInSights",
+    "version": "1.0.0",
+    "name": "AI-Powered PR Comments",
+    "description": "Azure DevOps extension to add AI-generated comments to pull requests from multiple providers including OpenAI, Azure AI, Google, Anthropic",
+    "public": true,
+    "categories": ["Azure Repos", "Azure Pipelines"],
+    "tags": ["build", "pr", "comment", "pullrequest", "ai", "openai", "gpt", "claude", "gemini", "coding-standards"],
+    "repository": {
+      "type": "git",
+      "uri": "https://github.com/JackInSightsV2/AzDevOps-PR-AI-Comments"
+    },
+    "icons": {
+      "default": "assets/images/logos/logo-128x128.png"
+    },
+    "targets": [
+      {
+        "id": "Microsoft.VisualStudio.Services"
+      }
+    ],
+    "contributions": [
+      {
+        "id": "pr-comment",
+        "type": "ms.vss-distributed-task.task",
+        "targets": ["ms.vss-distributed-task.tasks"],
+        "properties": {
+          "name": "dist"
+        }
+      }
+    ],
+    "content": {
+      "details": {
+        "path": "README.md"
+      },
+      "license": {
+        "path": "LICENSE.txt"
+      }
+    },
+    "files": [
+      {
+        "path": "dist",
+        "addressable": true
+      },
+      {
+        "path": "assets",
+        "addressable": true
+      }
+    ],
+    "links": {
+      "repository": {
+        "uri": "https://github.com/JackInSightsV2/AzDevOps-PR-AI-Comments"
+      }
+    },
+    "screenshots": [
+      {
+        "path": "assets/images/screenshots/screen1.png"
+      },
+      {
+        "path": "assets/images/screenshots/screen2.png"
+      }
+    ]
+  }
+  

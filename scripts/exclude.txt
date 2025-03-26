@@ -1,0 +1,7 @@
+*.svg
+*\doc\*
+*\docs\*
+*\test\*
+*\tests\*
+*\example\*
+*\examples\*

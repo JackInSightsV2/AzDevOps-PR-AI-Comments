@@ -1,0 +1,199 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+    "id": "aab8e9e5-4dbf-40a6-ae9b-408c73a2e8e9",
+    "name": "prAiProvider",
+    "friendlyName": "AI Powered PR Comments",
+    "description": "Adds AI Comment to Pull Requests in Azure DevOps",
+    "helpMarkDown": "",
+    "category": "Utility",
+    "author": "Byte Insights",
+    "version": {
+      "Major": 1,
+      "Minor": 0,
+      "Patch": 0
+    },
+    "instanceNameFormat": "PR Comment",
+    "inputs": [
+      {
+        "name": "useAIGeneration",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Generate comment using AI",
+        "required": false,
+        "helpMarkDown": "If checked, the comment will be generated using the selected AI provider."
+      },
+      {
+        "name": "aiProvider",
+        "type": "pickList",
+        "label": "AI Provider",
+        "defaultValue": "openai",
+        "required": false,
+        "helpMarkDown": "Select the AI provider to use for generating comments.",
+        "options": {
+          "openai": "OpenAI",
+          "azure": "Azure OpenAI",
+          "google": "Google AI",
+          "vertexai": "Google Vertex AI",
+          "anthropic": "Anthropic",
+          "ollama": "Ollama (Local)"
+        },
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "maxFileSizeInLines",
+        "type": "string",
+        "label": "Max File Size (Lines)",
+        "defaultValue": "1500",
+        "required": false,
+        "helpMarkDown": "Maximum number of lines to include from each file. Files larger than this will be truncated to avoid overwhelming the AI model.",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "modelName",
+        "type": "string",
+        "label": "Model Name",
+        "defaultValue": "",
+        "required": false,
+        "helpMarkDown": "Specify the model name to use (e.g., gpt-4, claude-3-opus, gemini-pro)",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "apiKey",
+        "type": "string",
+        "label": "API Key",
+        "defaultValue": "",
+        "required": false,
+        "helpMarkDown": "API key for the selected provider. For security, use pipeline variables.",
+        "visibleRule": "useAIGeneration == true && aiProvider != ollama"
+      },
+      {
+        "name": "azureApiEndpoint",
+        "type": "string",
+        "label": "Azure API Endpoint",
+        "defaultValue": "",
+        "required": false,
+        "helpMarkDown": "Custom API endpoint URL for Azure OpenAI",
+        "visibleRule": "useAIGeneration == true && aiProvider == azure"
+      },
+      {
+        "name": "ollamaApiEndpoint",
+        "type": "string",
+        "label": "Ollama API Endpoint",
+        "defaultValue": "http://localhost:11434",
+        "required": false,
+        "helpMarkDown": "API endpoint URL for Ollama (default: http://localhost:11434)",
+        "visibleRule": "useAIGeneration == true && aiProvider == ollama"
+      },
+      {
+        "name": "codingStandardsFile",
+        "type": "filePath",
+        "label": "Coding Standards File",
+        "defaultValue": "",
+        "required": false,
+        "helpMarkDown": "Path to a markdown file containing coding standards to be used as guidelines for the AI when generating comments.",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "promptTemplate",
+        "type": "multiLine",
+        "properties": {
+          "resizable": true,
+          "rows": "5"
+        },
+        "label": "Prompt Template",
+        "defaultValue": "Review the following code file and provide constructive feedback:\n\n{diff}",
+        "required": false,
+        "helpMarkDown": "Template for the AI prompt. Use {diff} as a placeholder for the complete file content (despite the name, it will contain the entire file). Use {standards} to include coding standards.",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "maxTokens",
+        "type": "string",
+        "label": "Max Tokens",
+        "defaultValue": "1000",
+        "required": false,
+        "helpMarkDown": "Maximum number of tokens for the AI response",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "temperature",
+        "type": "string",
+        "label": "Temperature",
+        "defaultValue": "0.7",
+        "required": false,
+        "helpMarkDown": "Controls randomness in the AI response (0.0-1.0)",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "comment",
+        "type": "multiLine",
+        "properties": {
+          "resizable": true,
+          "rows": "1"
+        },
+        "label": "Comment text. Markdown supported.",
+        "defaultValue": "This is **sample** _text_",
+        "required": true,
+        "helpMarkDown": "Specify a comment to be added on pull request. Not required if using AI generation.",
+        "visibleRule": "useAIGeneration == false"
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Active",
+        "required": false,
+        "helpMarkDown": "If checked, the comment will be added as active. Otherwise, it will be added as a closed comment."
+      },
+      {
+        "name": "addCommentOnlyOnce",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Add comment only once",
+        "required": false,
+        "helpMarkDown": "If checked, new comment won't be added if the comment already exists even if content does not match."
+      },
+      {
+        "name": "updatePreviousComment",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Update previous comment",
+        "required": false,
+        "helpMarkDown": "If checked, the comment will be updated if it already exists."
+      },
+      {
+        "name": "markdownFile",
+        "type": "filePath",
+        "label": "Markdown file",
+        "required": false,
+        "helpMarkDown": "Path to a markdown file. If specified, the content of the file will be used as comment text.",
+        "visibleRule": "useAIGeneration == false"
+      },
+      {
+        "name": "pullRequestId",
+        "type": "string",
+        "label": "Pull Request ID",
+        "required": false,
+        "helpMarkDown": "Add comment to this pull request. If not specified, the comment will be added to the current pull request. Required if repositoryId is specified."
+      },
+      {
+        "name": "repositoryId",
+        "type": "string",
+        "label": "Pull Request Repository ID",
+        "required": false,
+        "helpMarkDown": "Add comment to pull request in this repository. If not specified, the comment will be added to the current repository."
+      }
+    ],
+    "execution": {
+      "Node10": {
+        "target": "index.js"
+      },
+      "Node16": {
+        "target": "index.js"
+      },
+      "Node20_1": {
+        "target": "index.js"
+      }
+    }
+  }
+  
