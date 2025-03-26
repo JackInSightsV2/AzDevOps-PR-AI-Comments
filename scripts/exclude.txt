@@ -5,3 +5,5 @@
 *\tests\*
 *\example\*
 *\examples\*
+*\node_modules\**\*.d.ts
+*\node_modules\@jsonjoy.com\**\$$*
