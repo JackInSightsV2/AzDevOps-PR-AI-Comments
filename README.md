@@ -17,6 +17,8 @@ This Azure DevOps extension allows you to add AI-generated comments to pull requ
 - Control comment behavior (active/closed, update existing comments)
 - Support for markdown formatting in comments
 
+![AI-Generated PR Comment Example](assets/images/screenshots/screen1.png)
+
 ### How It Works
 
 1. Create a markdown file with your team's coding standards (Keep it simple; have a look at the examples folder)
