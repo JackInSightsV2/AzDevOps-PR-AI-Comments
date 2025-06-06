@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-06-06
+
+### Fixed
+- **BREAKING FIX**: Fixed exit code 1 errors that were preventing task execution
+- Fixed task name documentation typo from `AIPullRequestCommentIntergration` to correct task name `prAiProvider`
+- Fixed comment field validation issue where `required: true` was causing failures when AI generation was enabled
+- Added comprehensive API key validation to prevent runtime errors for all AI providers (except Ollama)
+- Enhanced input validation with proper error handling for missing configuration
+- Added validation for Azure OpenAI endpoint and model name requirements
+- Added validation for Ollama model name requirements
+- Improved error messages with clear, actionable feedback for troubleshooting
+
+### Added
+- Repository ID validation to ensure proper Azure DevOps context
+- Access token validation with helpful permission guidance
+- Collection URI validation for Azure DevOps connection
+- Provider-specific configuration validation for better user experience
+- Comprehensive error handling with appropriate task result codes (Failed, Skipped)
+- Better logging and diagnostic information for debugging issues
+
+### Changed
+- Comment field is no longer marked as required when AI generation is enabled
+- Task now uses `TaskResult.Skipped` instead of silent failure when no PR context is available
+- Enhanced error messages provide specific guidance for each type of configuration issue
+- Improved validation occurs before attempting to create AI services or make API calls
+
 ## [1.0.0] - 2024-03-26
 
 ### Added

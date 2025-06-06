@@ -270,6 +270,11 @@ export function createAIService(
   modelName: string,
   apiEndpoint?: string
 ): AIService {
+  // Validate API key for providers that require it (all except Ollama)
+  if (provider !== 'ollama' && (!apiKey || apiKey.trim() === '')) {
+    throw new Error(`API key is required for ${provider} provider`);
+  }
+  
   switch (provider) {
     case 'openai':
       return new OpenAIService(apiKey);
