@@ -10,7 +10,7 @@
     "version": {
       "Major": 1,
       "Minor": 0,
-      "Patch": 0
+      "Patch": 1
     },
     "instanceNameFormat": "PR Comment",
     "inputs": [
@@ -133,7 +133,7 @@
         },
         "label": "Comment text. Markdown supported.",
         "defaultValue": "This is **sample** _text_",
-        "required": true,
+        "required": false,
         "helpMarkDown": "Specify a comment to be added on pull request. Not required if using AI generation.",
         "visibleRule": "useAIGeneration == false"
       },
