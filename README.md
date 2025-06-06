@@ -37,7 +37,7 @@ See the [examples/CODING_STANDARDS_GUIDE.md](https://github.com/JackInSightsV2/a
 3. Add the task to your pipeline YAML:
 
 ```yaml
-- task: AIPullRequestCommentIntergration@1
+- task: prAiProvider@0.2.1
   displayName: 'Add AI Comment to PR'
   inputs:
     useAIGeneration: true
@@ -88,7 +88,7 @@ See the [examples/CODING_STANDARDS_GUIDE.md](https://github.com/JackInSightsV2/a
 ### Using OpenAI with Coding Standards
 
 ```yaml
-- task: AIPullRequestCommentIntergration@1
+- task: prAiProvider@0.2.1
   inputs:
     useAIGeneration: true
     aiProvider: 'openai'
@@ -110,7 +110,7 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
 ### Using Azure OpenAI
 
 ```yaml
-- task: AIPullRequestCommentIntergration@1
+- task: prAiProvider@0.2.1
   inputs:
     useAIGeneration: true
     aiProvider: 'azure'
@@ -123,7 +123,7 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
 ### Using Anthropic Claude
 
 ```yaml
-- task: AIPullRequestCommentIntergration@1
+- task: prAiProvider@0.2.1
   inputs:
     useAIGeneration: true
     aiProvider: 'anthropic'
@@ -135,7 +135,7 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
 ### Using Google AI (Gemini)
 
 ```yaml
-- task: AIPullRequestCommentIntergration@1
+- task: prAiProvider@0.2.1
   inputs:
     useAIGeneration: true
     aiProvider: 'google'
@@ -147,7 +147,7 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
 ### Using Ollama (Local Models)
 
 ```yaml
-- task: AIPullRequestCommentIntergration@1
+- task: prAiProvider@0.2.1
   inputs:
     useAIGeneration: true
     aiProvider: 'ollama'
