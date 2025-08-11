@@ -1,10 +1,12 @@
 # Azure DevOps PR Comment Extension with AI Integration
 
-[![Version](https://img.shields.io/badge/version-1.0.13-blue.svg)](https://marketplace.visualstudio.com/items?itemName=ByteInSights.AI-PR-Integration)
+[![Version](https://img.shields.io/badge/version-1.0.14-blue.svg)](https://marketplace.visualstudio.com/items?itemName=ByteInSights.AI-PR-Integration)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
 [![Azure DevOps](https://img.shields.io/badge/Azure%20DevOps-Compatible-blue.svg)](https://dev.azure.com)
 
 This Azure DevOps extension allows you to add AI-generated comments to pull requests directly from your pipeline tasks. It supports multiple AI providers, giving you flexibility in choosing the model that best fits your needs.
+
+https://marketplace.visualstudio.com/items?itemName=ByteInsights.DevOps-AI-PR-Extension
 
 ## 📋 Table of Contents
 
