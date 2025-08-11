@@ -1,6 +1,26 @@
 # Azure DevOps PR Comment Extension with AI Integration
 
+[![Version](https://img.shields.io/badge/version-1.0.13-blue.svg)](https://marketplace.visualstudio.com/items?itemName=ByteInSights.AI-PR-Integration)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
+[![Azure DevOps](https://img.shields.io/badge/Azure%20DevOps-Compatible-blue.svg)](https://dev.azure.com)
+
 This Azure DevOps extension allows you to add AI-generated comments to pull requests directly from your pipeline tasks. It supports multiple AI providers, giving you flexibility in choosing the model that best fits your needs.
+
+## 📋 Table of Contents
+
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Quick Setup](#quick-setup)
+  - [Configuration Options](#configuration-options)
+- [Examples](#examples)
+- [Creating Coding Standards](#creating-coding-standards)
+- [Setting Up API Keys](#setting-up-api-keys)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
@@ -26,25 +46,33 @@ This Azure DevOps extension allows you to add AI-generated comments to pull requ
 3. The AI model will use these standards when reviewing code changes
 4. Receive tailored feedback that follows your team's guidelines
 
-See the [examples/CODING_STANDARDS_GUIDE.md](https://github.com/JackInSightsV2/azure-devops-pr-comment-extension/blob/main/examples/CODING_STANDARDS_GUIDE.md) for detailed instructions and best practices.
+![How It Works Diagram](assets/images/screenshots/screen5.png)
+
+See the [examples/CODING_STANDARDS_GUIDE.md](examples/CODING_STANDARDS_GUIDE.md) for detailed instructions and best practices.
 
 ## Getting Started
 
 ### Installation
 
 1. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ByteInSights.AI-PR-Integration)
-2. Permissions: Your agent that deploys the pipeline will need access to make comments on a PR (Check the Screenshots to See How)
-3. Add the task to your pipeline YAML:
+2. **Permissions**: Your Azure DevOps build service needs `Contribute to pull requests` permissions (see [Troubleshooting](#troubleshooting) for setup details)
+
+![Extension Installation](assets/images/screenshots/screen4.png)
+![Extension Installation](assets/images/screenshots/screen3.png)
+
+### Quick Setup
+
+Add the task to your Azure Pipelines YAML:
 
 ```yaml
-- task: prAiProvider@0.2.1
+- task: prAiProvider@1
   displayName: 'Add AI Comment to PR'
   inputs:
     useAIGeneration: true
     aiProvider: 'openai'
     modelName: 'gpt-4'
     apiKey: '$(OPENAI_API_KEY)'
-    codingStandardsFile: '$(Build.SourcesDirectory)/docs/coding-standards.md' <-- Put the path to your standards here. 
+    codingStandardsFile: '$(Build.SourcesDirectory)/docs/coding-standards.md' # Path to your coding standards file 
     promptTemplate: |
       Review the following code changes according to our coding standards:
       
@@ -57,6 +85,8 @@ See the [examples/CODING_STANDARDS_GUIDE.md](https://github.com/JackInSightsV2/a
     temperature: '0.7'
     active: true
 ```
+
+> **💡 Pro Tip**: Using `@1` (major version) automatically gets the latest compatible version. Avoid using specific versions like `@1.0.13` to get automatic updates. 
 
 ### Configuration Options
 
@@ -83,16 +113,20 @@ See the [examples/CODING_STANDARDS_GUIDE.md](https://github.com/JackInSightsV2/a
 - **pullRequestId**: Target pull request ID (defaults to current PR)
 - **repositoryId**: Target repository ID (defaults to current repo)
 
+
+
+
+
 ## Examples
 
 ### Using OpenAI with Coding Standards
 
 ```yaml
-- task: prAiProvider@0.2.1
+- task: prAiProvider@1
   inputs:
     useAIGeneration: true
     aiProvider: 'openai'
-    modelName: 'gpt-4'
+    modelName: 'gpt-5-nano-2025-08-07'
     apiKey: '$(OPENAI_API_KEY)'
     codingStandardsFile: '$(Build.SourcesDirectory)/docs/coding-standards.md'
     promptTemplate: |
@@ -105,16 +139,16 @@ See the [examples/CODING_STANDARDS_GUIDE.md](https://github.com/JackInSightsV2/a
       {diff}
 ```
 
-For more examples, see the [examples/pipeline-with-coding-standards.yml](https://github.com/JackInSightsV2/azure-devops-pr-comment-extension/blob/main/examples/pipeline-with-coding-standards.yml) file.
+For a complete working example, see the [examples/Pipelines/testing_pr.yaml](examples/Pipelines/testing_pr.yaml) file.
 
 ### Using Azure OpenAI
 
 ```yaml
-- task: prAiProvider@0.2.1
+- task: prAiProvider@1
   inputs:
     useAIGeneration: true
     aiProvider: 'azure'
-    modelName: 'gpt-4o-mini'
+    modelName: 'gpt-5-nano' 
     apiKey: '$(AZURE_OPENAI_API_KEY)'
     azureApiEndpoint: 'https://your-resource.openai.azure.com'
     promptTemplate: 'Review this code for performance issues: {diff}'
@@ -123,7 +157,7 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
 ### Using Anthropic Claude
 
 ```yaml
-- task: prAiProvider@0.2.1
+- task: prAiProvider@1
   inputs:
     useAIGeneration: true
     aiProvider: 'anthropic'
@@ -135,7 +169,7 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
 ### Using Google AI (Gemini)
 
 ```yaml
-- task: prAiProvider@0.2.1
+- task: prAiProvider@1
   inputs:
     useAIGeneration: true
     aiProvider: 'google'
@@ -147,7 +181,7 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
 ### Using Ollama (Local Models)
 
 ```yaml
-- task: prAiProvider@0.2.1
+- task: prAiProvider@1
   inputs:
     useAIGeneration: true
     aiProvider: 'ollama'
@@ -156,9 +190,15 @@ For more examples, see the [examples/pipeline-with-coding-standards.yml](https:/
     promptTemplate: 'Review this code: {diff}'
 ```
 
-## Creating a Coding Standards File
+## Creating Coding Standards
 
-Create a markdown file in your repository with your team's coding standards. For example:
+### Why Use Coding Standards?
+
+Coding standards help the AI provide more relevant and consistent feedback by understanding your team's specific requirements and preferences.
+
+### Creating Your Standards File
+
+Create a markdown file in your repository with your team's coding standards. Keep it simple and focused:
 
 ```markdown
 # Team Coding Standards
@@ -184,74 +224,137 @@ Create a markdown file in your repository with your team's coding standards. For
 - Use typed errors when possible
 ```
 
-For a comprehensive example, see CODING_STANDARDS_GUIDE.md
+### Example Standards by Language
+
+We provide example coding standards for different languages in the `/examples/Coding Standards/` folder:
+
+- [TypeScript/JavaScript Standards](examples/Coding%20Standards/cs_javascript.md)
+- [Python Standards](examples/Coding%20Standards/cs_python.md)
+- [PowerShell Standards](examples/Coding%20Standards/cs_powershell.md)
+- [Terraform Standards](examples/Coding%20Standards/cs_terraform.md)
+- [Go Standards](examples/Coding%20Standards/cs_go.md)
+- [Bicep Standards](examples/Coding%20Standards/cs_bicep.md)
+
+For a comprehensive guide, see the [CODING_STANDARDS_GUIDE.md](examples/CODING_STANDARDS_GUIDE.md).
+
+## Setting Up API Keys
+
+### Method 1: Variable Groups (Recommended)
+
+1. **Navigate to Pipelines → Library**
+   - In Azure DevOps, go to **Pipelines** → **Library** → **Variable groups**
+   
+2. **Create a New Variable Group**
+   - Click **+ Variable group**
+   - Name it (e.g., `AI-API-Keys`)
+   
+3. **Add API Key as a Secret**
+   - Click **Add** → enter the variable name (e.g., `OPENAI_API_KEY`)
+   - Enter the API key value
+   - Mark as **Keep this value secret**
+   
+4. **Save and Link to Pipeline**
+   ```yaml
+   variables:
+     - group: 'AI-API-Keys'
+   ```
+
+![API Key Setup](assets/images/screenshots/screen6.png)
+
+### Method 2: Pipeline Variables
+
+1. **Open the Pipeline**
+   - Go to **Pipelines** → select your pipeline → click **Edit**
+
+2. **Add a Pipeline Variable**
+   - Click the **Variables** tab (top-right)
+   - Click **New variable**
+   - Name it (e.g., `OPENAI_API_KEY`)
+   - Enter the value and mark as **Keep this value secret**
+
+3. **Reference in YAML**
+   ```yaml
+   - task: prAiProvider@1
+     inputs:
+       apiKey: '$(OPENAI_API_KEY)'
+   ```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Permission Denied Errors
+
+**Problem**: `The build service does not have permission to contribute to pull requests`
+
+**Solution**: Grant your build service the necessary permissions:
+
+1. Go to **Project Settings** → **Repositories** → **Security**
+2. Find your project's build service (e.g., `[Project Name] Build Service`)
+3. Set **Contribute to pull requests** to **Allow**
+
+![Permission Setup](assets/images/screenshots/screen2.png)
+
+#### API Key Issues
+
+**Problem**: `Invalid API key` or authentication errors
+
+**Solutions**:
+- Verify your API key is correctly set as a secret variable
+- Check that the variable name matches exactly (case-sensitive)
+- Ensure the API key has the necessary permissions for your AI provider
+
+#### AI Provider Specific Issues
+
+##### OpenAI
+- Ensure you have sufficient credits in your OpenAI account
+- Check rate limits if you're getting timeout errors
+- Use `gpt-4o` or `gpt-4o-mini` for best results
+
+##### Azure OpenAI
+- Verify your deployment name matches the `modelName` parameter
+- Ensure your Azure OpenAI resource is deployed in a supported region
+- Check that your API endpoint URL is correct
+
+##### Anthropic (Claude)
+- Ensure you have access to the Claude model you're trying to use
+- Check your organization's usage limits
+
+### FAQ
+
+**Q: Can I use multiple AI providers in the same pipeline?**
+A: Yes, you can add multiple tasks with different providers to get varied feedback.
+
+**Q: How much does it cost to run AI reviews?**
+A: Costs depend on your AI provider's pricing. For reference, reviewing a typical PR (~500 lines) costs approximately:
+- OpenAI GPT-5-nano: ~$0.01-0.05
+- Anthropic Claude: ~$0.02-0.08
+- Google Gemini: ~$0.005-0.02
+
+**Q: Can I customize the AI prompt?**
+A: Yes, use the `promptTemplate` parameter with `{diff}` for code changes and `{standards}` for coding standards.
+
+**Q: Does this work with private repositories?**
+A: Yes, the extension works with both public and private Azure DevOps repositories.
 
 ## Development
 
-### Project Structure
-
-The project is organized as follows:
-
-- `src/` - TypeScript source files
-  - `ai-services.ts` - Implementation of various AI service providers
-  - `index.ts` - Main entry point for the extension
-  - `pr-utils.ts` - Utilities for working with pull requests
-- `dist/` - Compiled JavaScript files (generated during build)
-- `scripts/` - Build and utility scripts
-  - `test-ai-services.js` - Script to test AI service integrations
-- `_devlog/testfiles/` - Test files for development and testing
-
-### Building the Project
-
-To build the project, run:
-
-```bash
-npm run build
-```
-
-This will:
-1. Clean the `dist` directory
-2. Compile TypeScript files
-3. Copy the task.json file to the dist directory
-4. Copy required node_modules to the dist directory
-
 ### Testing AI Services
 
-The project includes a test script to verify AI service integrations. To use it:
+The project includes a test script to verify AI service integrations:
 
-1. Create a `.env` file in the `_devlog/testfiles/` directory with your API keys:
-   ```
-   OPENAI_API_KEY=your_openai_key
-   AZURE_OPENAI_API_KEY=your_azure_key
-   AZURE_OPENAI_ENDPOINT=your_azure_endpoint
-   ANTHROPIC_API_KEY=your_anthropic_key
-   GOOGLE_AI_API_KEY=your_google_key
-   ```
+```powershell
+# Install dependencies
+npm install
 
-2. Run the test script:
-   ```bash
-   node scripts/test-ai-services.js
-   ```
+# Build the project
+npm run build
 
-The script will:
-- Load API keys from the `.env` file
-- Compile the TypeScript files to ensure the latest code is tested
-- Test each AI service with a sample code review prompt
-- Save the responses to markdown files in the `_devlog/testfiles/` directory
+# Test AI services (requires API keys)
+node scripts/test-ai-services.js
+```
 
-This allows you to verify that all AI services are working correctly before deploying the extension.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test your changes with the test script
-5. Submit a pull request
+This script tests all AI providers and generates sample responses for verification.
 
 ## License
 
