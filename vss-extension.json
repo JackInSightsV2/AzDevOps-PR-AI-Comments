@@ -2,7 +2,7 @@
     "manifestVersion": 1,
     "id": "DevOps-AI-PR-Extension",
     "publisher": "ByteInSights",
-    "version": "1.0.1",
+    "version": "1.0.13",
     "name": "AI-Powered PR Comments",
     "description": "Azure DevOps extension to add AI-generated comments to pull requests from multiple providers including OpenAI, Azure AI, Google, Anthropic",
     "public": true,

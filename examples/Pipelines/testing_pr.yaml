@@ -16,12 +16,12 @@ jobs:
   pool:
     name: "Default"
   steps:
-  - task: prAiProvider@0.2.1
-    displayName: 'OpenAI GPT-4o Review'
+  - task: prAiProvider@01
+    displayName: 'OpenAI GPT-5-Nano Review'
     inputs:
       useAIGeneration: true
       aiProvider: 'openai'
-      modelName: 'gpt-4o'
+      modelName: 'gpt-5-nano-2025-08-07'
       apiKey: '$(OPENAI_API_KEY)'
       maxFileSizeInLines: '1500'
       codingStandardsFile: '$(Build.SourcesDirectory)/Coding Standards/cs_powershell.md'
@@ -42,7 +42,7 @@ jobs:
   pool:
     name: "Default"
   steps:
-  - task: prAiProvider@0.2.1
+  - task: prAiProvider@1
     displayName: 'OpenAI GPT-4o-mini Review'
     inputs:
       useAIGeneration: true
@@ -69,7 +69,7 @@ jobs:
   pool:
     name: "Default"
   steps:
-  - task: prAiProvider@0.2.1
+  - task: prAiProvider@1
     displayName: 'Claude-3-Opus Review'
     inputs:
       useAIGeneration: true
@@ -95,7 +95,7 @@ jobs:
   pool:
     name: "Default"
   steps:
-  - task: prAiProvider@0.2.1
+  - task: prAiProvider@1
     displayName: 'Claude-3-Sonnet Review'
     inputs:
       useAIGeneration: true
@@ -121,7 +121,7 @@ jobs:
   pool:
     name: "Default"
   steps:
-  - task: prAiProvider@0.2.1
+  - task: prAiProvider@1
     displayName: 'Claude-3-Haiku Review'
     inputs:
       useAIGeneration: true
@@ -148,7 +148,7 @@ jobs:
   pool:
     name: "Default"
   steps:
-  - task: prAiProvider@0.2.1
+  - task: prAiProvider@1
     displayName: 'Gemini Pro Review'
     inputs:
       useAIGeneration: true
@@ -175,7 +175,7 @@ jobs:
   pool:
     name: "Default"
   steps:
-  - task: prAiProvider@0.2.1
+  - task: prAiProvider@1
     displayName: 'Azure GPT-4 Turbo Review'
     inputs:
       useAIGeneration: true

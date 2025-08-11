@@ -1,7 +1,4 @@
 import axios from 'axios';
-import { OpenAI } from 'openai';
-import { VertexAI } from '@google-cloud/vertexai';
-import { Anthropic } from '@anthropic-ai/sdk';
 
 // Interface for AI service responses
 export interface AIResponse {
@@ -16,9 +13,12 @@ export interface AIService {
 
 // OpenAI implementation
 export class OpenAIService implements AIService {
-  private client: OpenAI;
+  private client: any;
 
   constructor(apiKey: string) {
+    // Lazy-load to avoid requiring 'openai' unless provider is used
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { OpenAI } = require('openai');
     this.client = new OpenAI({ apiKey });
   }
 
@@ -144,6 +144,7 @@ export class VertexAIService implements AIService {
   private projectId: string;
   private location: string;
   private model: string;
+  private vertexCtor?: any;
 
   constructor(projectId: string, location: string = 'us-central1', model: string = 'gemini-pro') {
     this.projectId = projectId;
@@ -153,7 +154,13 @@ export class VertexAIService implements AIService {
 
   async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
     try {
-      const vertexAI = new VertexAI({
+      // Lazy-load to avoid requiring '@google-cloud/vertexai' unless provider is used
+      if (!this.vertexCtor) {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { VertexAI } = require('@google-cloud/vertexai');
+        this.vertexCtor = VertexAI;
+      }
+      const vertexAI = new this.vertexCtor({
         project: this.projectId,
         location: this.location,
       });
@@ -184,10 +191,13 @@ export class VertexAIService implements AIService {
 
 // Anthropic implementation using the SDK
 export class AnthropicService implements AIService {
-  private client: Anthropic;
+  private client: any;
   private model: string;
 
   constructor(apiKey: string, model: string = 'claude-3-opus-20240229') {
+    // Lazy-load to avoid requiring '@anthropic-ai/sdk' unless provider is used
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { Anthropic } = require('@anthropic-ai/sdk');
     this.client = new Anthropic({ apiKey });
     this.model = model;
   }
