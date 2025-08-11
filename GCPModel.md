@@ -78,7 +78,7 @@ Add your Google AI API key to Azure DevOps pipeline variables:
 Use the following YAML configuration in your Azure DevOps pipeline:
 
 ```yaml
-- task: prAiProvider@0.2.1
+- task: prAiProvider@1
   displayName: 'Google AI Review'
   inputs:
     useAIGeneration: true
