@@ -182,6 +182,22 @@
         "label": "Pull Request Repository ID",
         "required": false,
         "helpMarkDown": "Add comment to pull request in this repository. If not specified, the comment will be added to the current repository."
+      },
+      {
+        "name": "allowedFileExtensions",
+        "type": "string",
+        "defaultValue": "",
+        "label": "Add file types to include in processing.",
+        "required": false,
+        "helpMarkDown": "Comma-separated list of file extensions to include in processing (e.g. .js,.ts,.jsx,.tsx)."
+      },
+      {
+        "name": "exclusionString",
+        "type": "string",
+        "defaultValue": "",
+        "label": "Add exclusionString to exclude file from processing.",
+        "required": false,
+        "helpMarkDown": "String to exclude files from processing. If file contains this string, it will be excluded from processing."
       }
     ],
     "execution": {

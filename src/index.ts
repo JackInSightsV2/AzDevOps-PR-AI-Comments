@@ -88,6 +88,30 @@ async function run() {
         
         // Create a comment for each file
         for (const [filePath, fileContent] of Object.entries(completeFiles)) {
+
+          // Get file extensions to process (if specified)
+          const fileExtensions = tl.getDelimitedInput('fileExtensions', ',', false) || [];
+          if (fileExtensions.length > 0) {
+            const fileExtension = path.extname(filePath).toLowerCase();
+            const shouldProcess = fileExtensions.some((ext: string) => {
+              const normalizedExt = ext.trim().toLowerCase();
+              return normalizedExt === fileExtension || normalizedExt === fileExtension.substring(1);
+            });
+            
+            if (!shouldProcess) {
+              console.log(`Skipping file ${filePath} - extension ${fileExtension} not in allowed list: ${fileExtensions.join(', ')}`);
+              continue;
+            }
+          }
+
+          const exclusionString = tl.getInput('exclusionString', false);
+          if (exclusionString) {
+            if (fileContent.includes(exclusionString)) {
+              console.log(`Skipping file ${filePath} - excluded by user`);
+              continue;
+            }
+          }
+
           // Create a file-specific prompt
           const filePrompt = promptTemplate
             .replace('{diff}', `File: ${filePath}\n\n${fileContent}`)
