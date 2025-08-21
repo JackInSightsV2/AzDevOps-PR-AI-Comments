@@ -86,6 +86,8 @@ Add the task to your Azure Pipelines YAML:
     maxTokens: '1000'
     temperature: '0.7'
     active: true
+    allowedFileExtensions: '.cs, .sql, .ts, .js, .html' 
+    exclusionString: 'ai-pr-ignore' 
 ```
 
 > **💡 Pro Tip**: Using `@1` (major version) automatically gets the latest compatible version. Avoid using specific versions like `@1.0.13` to get automatic updates. 
@@ -104,6 +106,8 @@ Add the task to your Azure Pipelines YAML:
 - **promptTemplate**: Template for the AI prompt (use {diff} to include PR changes and {standards} to include coding standards)
 - **maxTokens**: Maximum number of tokens for the AI response
 - **temperature**: Controls randomness in the AI response (0.0-1.0)
+- **allowedFileExtentions**: Only files with these extentions will be included in the pr review
+- **exclusionString**: Files with this string in their content will be excluded from the pr review
 
 #### Comment Options
 
