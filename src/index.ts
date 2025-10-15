@@ -90,7 +90,7 @@ async function run() {
         for (const [filePath, fileContent] of Object.entries(completeFiles)) {
 
           // Get file extensions to process (if specified)
-          const fileExtensions = tl.getDelimitedInput('fileExtensions', ',', false) || [];
+          const fileExtensions = tl.getDelimitedInput('allowedFileExtensions', ',', false) || [];
           if (fileExtensions.length > 0) {
             const fileExtension = path.extname(filePath).toLowerCase();
             const shouldProcess = fileExtensions.some((ext: string) => {
