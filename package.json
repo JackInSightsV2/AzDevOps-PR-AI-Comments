@@ -1,6 +1,6 @@
 {
   "name": "azure-devops-extension-ai-generated-pr-comments",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Azure DevOps Extension for AI Generated PR Comments",
   "main": "dist/index.js",
   "scripts": {
