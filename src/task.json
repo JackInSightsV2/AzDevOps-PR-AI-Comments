@@ -7,11 +7,11 @@
     "helpMarkDown": "",
     "category": "Utility",
     "author": "Byte Insights",
-    "version": {
-      "Major": 1,
-      "Minor": 0,
-      "Patch": 19
-    },
+      "version": {
+        "Major": 1,
+        "Minor": 0,
+        "Patch": 20
+      },
     "instanceNameFormat": "PR Comment",
     "inputs": [
       {

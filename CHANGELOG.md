@@ -5,13 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.20] - 2025-11-10
 
-- Added `analyzeChangesOnly` input to choose between diff-only and full-file analysis
-- Added `enableInlineComments` input to post feedback inline on the PR diff
-- Included `{analysisMode}` placeholder support in prompt templates for context-aware instructions
-- Refactored PR utility helpers to surface first changed line metadata for inline comments
-- Documented new switches and updated pipeline examples to reflect selective analysis workflows
+### Added
+- `analyzeChangesOnly` task input to let users choose between diff-only and full-file AI analysis
+- Inline PR review comments via the new `enableInlineComments` switch
+- `{analysisMode}` placeholder in prompt templates for mode-aware instructions
+
+### Changed
+- Refactored diff utilities to return first-changed-line metadata for inline positioning
+- Documentation updated with new switches, prompt guidance, and YAML examples
 
 ## [1.0.19] - 2025-11-10
 

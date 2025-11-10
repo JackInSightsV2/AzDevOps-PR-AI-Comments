@@ -1,6 +1,6 @@
 # Azure DevOps PR Comment Extension with AI Integration
 
-[![Version](https://img.shields.io/badge/version-1.0.19-blue.svg)](https://marketplace.visualstudio.com/items?itemName=ByteInSights.AI-PR-Integration)
+[![Version](https://img.shields.io/badge/version-1.0.20-blue.svg)](https://marketplace.visualstudio.com/items?itemName=ByteInSights.AI-PR-Integration)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
 [![Azure DevOps](https://img.shields.io/badge/Azure%20DevOps-Compatible-blue.svg)](https://dev.azure.com)
 
