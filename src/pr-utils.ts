@@ -15,6 +15,8 @@ export interface PullRequestAnalysisTarget {
   truncated?: boolean;
 }
 
+type ChangeEntries = NonNullable<GitPullRequestIterationChanges['changeEntries']>;
+
 /**
  * Converts a returned content (string or stream) into a string.
  */
@@ -80,10 +82,10 @@ export async function getPullRequestDiff(
 ): Promise<Record<string, PullRequestAnalysisTarget>> {
   try {
     console.log(`Getting diff for PR #${pullRequestId} in repository ${repositoryId}`);
-    const { gitApi, changes } = await loadLatestIterationChanges(connection, repositoryId, pullRequestId, project);
+    const { gitApi, changeEntries } = await loadLatestIterationChanges(connection, repositoryId, pullRequestId, project);
 
     const fileDiffs: Record<string, PullRequestAnalysisTarget> = {};
-    for (const change of changes.changeEntries) {
+    for (const change of changeEntries) {
       if (!change.item || !change.item.path) {
         continue;
       }
@@ -194,12 +196,12 @@ export async function getPullRequestFiles(
     }
     console.log(`Build source directory: ${buildSourcesDir}`);
 
-    const { changes } = await loadLatestIterationChanges(connection, repositoryId, pullRequestId, project);
+    const { changeEntries } = await loadLatestIterationChanges(connection, repositoryId, pullRequestId, project);
     console.log('STEP 3: Processing changed files');
-    console.log(`Found ${changes.changeEntries.length} changes in PR #${pullRequestId}`);
+    console.log(`Found ${changeEntries.length} changes in PR #${pullRequestId}`);
 
     const changedFilePaths: string[] = [];
-    for (const change of changes.changeEntries) {
+    for (const change of changeEntries) {
       if (!change.item || !change.item.path) {
         console.log('⚠️ Change entry missing item or path, skipping');
         continue;
@@ -305,7 +307,7 @@ async function loadLatestIterationChanges(
   repositoryId: string,
   pullRequestId: number,
   project?: string
-): Promise<{ gitApi: any; iterationId: number; changes: GitPullRequestIterationChanges }> {
+): Promise<{ gitApi: any; iterationId: number; changeEntries: ChangeEntries }> {
   const gitApi = await connection.getGitApi();
   console.log('Successfully connected to Git API');
 
@@ -350,7 +352,13 @@ async function loadLatestIterationChanges(
     throw new Error('No changes found in the latest PR iteration');
   }
 
-  return { gitApi, iterationId, changes };
+  const changeEntries = changes.changeEntries;
+  if (!changeEntries || changeEntries.length === 0) {
+    console.log('❌ No change entries returned for this iteration');
+    throw new Error('No change entries returned for this iteration');
+  }
+
+  return { gitApi, iterationId, changeEntries: changeEntries as ChangeEntries };
 }
 
 async function getContentForObjectId(
