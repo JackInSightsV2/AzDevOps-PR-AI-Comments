@@ -79,6 +79,11 @@ async function run() {
           console.log(`Analysis mode: ${analysisModeLabel === 'changes-only' ? 'Using PR diffs (changed lines only)' : 'Using full file contents'}`);
           console.log(`Maximum input size set to ${maxFileSizeInLines} lines`);
 
+          const inlineCommentsEnabled = enableInlineComments && analyzeChangesOnly;
+          if (enableInlineComments && !analyzeChangesOnly) {
+            console.log('Inline comments require analyzeChangesOnly=true; falling back to file-level comments.');
+          }
+
           const analysisTargets: Record<string, PullRequestAnalysisTarget> = analyzeChangesOnly
             ? await getPullRequestDiff(connection, repositoryId, pullRequestId, undefined, maxFileSizeInLines)
             : await getPullRequestFiles(connection, repositoryId, pullRequestId, undefined, maxFileSizeInLines);
@@ -99,7 +104,7 @@ async function run() {
           
           console.log(`Retrieved ${analysisEntries.length} analysis targets`);
         
-        // Create a comment for each file
+          // Create a comment for each file
           for (const [filePath, analysisTarget] of analysisEntries) {
             if (filePath === 'ERROR.txt') {
               continue;
@@ -109,55 +114,53 @@ async function run() {
               continue;
             }
 
-          // Get file extensions to process (if specified)
-          const fileExtensions = tl.getDelimitedInput('allowedFileExtensions', ',', false) || [];
-          if (fileExtensions.length > 0) {
-            const fileExtension = path.extname(filePath).toLowerCase();
-            const shouldProcess = fileExtensions.some((ext: string) => {
-              const normalizedExt = ext.trim().toLowerCase();
-              return normalizedExt === fileExtension || normalizedExt === fileExtension.substring(1);
-            });
-            
-            if (!shouldProcess) {
-              console.log(`Skipping file ${filePath} - extension ${fileExtension} not in allowed list: ${fileExtensions.join(', ')}`);
-              continue;
+            // Get file extensions to process (if specified)
+            const fileExtensions = tl.getDelimitedInput('allowedFileExtensions', ',', false) || [];
+            if (fileExtensions.length > 0) {
+              const fileExtension = path.extname(filePath).toLowerCase();
+              const shouldProcess = fileExtensions.some((ext: string) => {
+                const normalizedExt = ext.trim().toLowerCase();
+                return normalizedExt === fileExtension || normalizedExt === fileExtension.substring(1);
+              });
+              
+              if (!shouldProcess) {
+                console.log(`Skipping file ${filePath} - extension ${fileExtension} not in allowed list: ${fileExtensions.join(', ')}`);
+                continue;
+              }
             }
-          }
 
-          const exclusionString = tl.getInput('exclusionString', false);
-          if (exclusionString) {
-              if (analysisTarget.content.includes(exclusionString)) {
+            const exclusionString = tl.getInput('exclusionString', false);
+            if (exclusionString && analysisTarget.content.includes(exclusionString)) {
               console.log(`Skipping file ${filePath} - excluded by user`);
               continue;
             }
-          }
 
-          // Create a file-specific prompt
-          const filePrompt = promptTemplate
+            // Create a file-specific prompt
+            const filePrompt = promptTemplate
               .replace('{diff}', `File: ${filePath}\n\n${analysisTarget.content}`)
               .replace('{standards}', codingStandards)
               .replace('{analysisMode}', analysisTarget.isDiff ? 'diff' : 'full');
             
-          // Save prompt to file
-          savePromptToFile(filePrompt, aiProvider);
-          
-          // Generate a comment for this file
+            // Save prompt to file
+            savePromptToFile(filePrompt, aiProvider);
+            
+            // Generate a comment for this file
             console.log(`Generating comment for file: ${filePath} (${analysisTarget.isDiff ? 'diff' : 'full'})`);
-          const aiService = createAIService(aiProvider, apiKey, modelName, apiEndpoint);
-          const aiResponse = await aiService.generateComment(filePrompt, maxTokens, temperature);
-          
-          if (aiResponse.error) {
-            console.log(`Error generating AI comment for ${filePath}: ${aiResponse.error}`);
-            continue;
-          }
-          
-          // Create a thread for this file
+            const aiService = createAIService(aiProvider, apiKey, modelName, apiEndpoint);
+            const aiResponse = await aiService.generateComment(filePrompt, maxTokens, temperature);
+            
+            if (aiResponse.error) {
+              console.log(`Error generating AI comment for ${filePath}: ${aiResponse.error}`);
+              continue;
+            }
+            
+            // Create a thread for this file
             let fileCommentContent = `**AI Review for ${filePath}**\n\n${aiResponse.content}`;
             if (analysisTarget.truncated) {
               fileCommentContent += `\n\n_Note: Input content was truncated to ${maxFileSizeInLines} lines._`;
             }
             
-            const threadContext = enableInlineComments
+            const threadContext = inlineCommentsEnabled
               ? {
                   filePath,
                   rightFileStart: {
@@ -173,32 +176,32 @@ async function run() {
                   filePath,
                 };
             
-            if (enableInlineComments) {
+            if (inlineCommentsEnabled) {
               console.log(`Posting inline comment for ${filePath} at line ${analysisTarget.firstChangedLine ?? 1}`);
             }
           
-          // Create a thread for this file
-          const thread: GitPullRequestCommentThread = {
-            comments: [{
-              commentType: CommentType.Text,
-              content: fileCommentContent,
-            }],
-            lastUpdatedDate: new Date(),
-            publishedDate: new Date(),
-            status: isActive ? CommentThreadStatus.Active : CommentThreadStatus.Closed,
-            properties: {
-              'PullRequestCommentTask': 'true'
-            },
-            threadContext
-          };
-          
-          try {
-            await gitApi.createThread(thread, repositoryId, pullRequestId);
-            console.log(`Comment added for file: ${filePath}`);
-          } catch (error) {
-            console.log(`Error adding comment for file ${filePath}: ${error}`);
+            // Create a thread for this file
+            const thread: GitPullRequestCommentThread = {
+              comments: [{
+                commentType: CommentType.Text,
+                content: fileCommentContent,
+              }],
+              lastUpdatedDate: new Date(),
+              publishedDate: new Date(),
+              status: isActive ? CommentThreadStatus.Active : CommentThreadStatus.Closed,
+              properties: {
+                'PullRequestCommentTask': 'true'
+              },
+              threadContext
+            };
+            
+            try {
+              await gitApi.createThread(thread, repositoryId, pullRequestId);
+              console.log(`Comment added for file: ${filePath}`);
+            } catch (error) {
+              console.log(`Error adding comment for file ${filePath}: ${error}`);
+            }
           }
-        }
         
         // We've created comments for each file, so we don't need to create a general comment
         return;
