@@ -7,11 +7,11 @@
     "helpMarkDown": "",
     "category": "Utility",
     "author": "Byte Insights",
-    "version": {
-      "Major": 1,
-      "Minor": 0,
-      "Patch": 19
-    },
+      "version": {
+        "Major": 1,
+        "Minor": 0,
+        "Patch": 21
+      },
     "instanceNameFormat": "PR Comment",
     "inputs": [
       {
@@ -122,6 +122,24 @@
         "defaultValue": "0.7",
         "required": false,
         "helpMarkDown": "Controls randomness in the AI response (0.0-1.0)",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "enableInlineComments",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Enable inline review comments",
+        "required": false,
+        "helpMarkDown": "If checked, AI-generated feedback will be posted as inline PR comments on the diff.",
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "analyzeChangesOnly",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Analyze changed lines only",
+        "required": false,
+        "helpMarkDown": "If checked, only the changed lines in the pull request will be analyzed. Otherwise the full file content is used.",
         "visibleRule": "useAIGeneration == true"
       },
       {

@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.21] - 2025-11-10
+
+### Fixed
+- Inline comments are now only emitted when `analyzeChangesOnly` is true, preventing full-file runs from anchoring every comment at line 1.
+
+## [1.0.20] - 2025-11-10
+
+### Added
+- `analyzeChangesOnly` task input to let users choose between diff-only and full-file AI analysis
+- Inline PR review comments via the new `enableInlineComments` switch
+- `{analysisMode}` placeholder in prompt templates for mode-aware instructions
+
+### Changed
+- Refactored diff utilities to return first-changed-line metadata for inline positioning
+- Documentation updated with new switches, prompt guidance, and YAML examples
 
 ## [1.0.19] - 2025-11-10
 
