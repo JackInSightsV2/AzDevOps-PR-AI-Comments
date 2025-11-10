@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Added `analyzeChangesOnly` input to choose between diff-only and full-file analysis
+- Added `enableInlineComments` input to post feedback inline on the PR diff
+- Included `{analysisMode}` placeholder support in prompt templates for context-aware instructions
+- Refactored PR utility helpers to surface first changed line metadata for inline comments
+- Documented new switches and updated pipeline examples to reflect selective analysis workflows
+
 ## [1.0.19] - 2025-11-10
 
 ### Changed

@@ -35,6 +35,8 @@ https://marketplace.visualstudio.com/items?itemName=ByteInsights.DevOps-AI-PR-Ex
   - Anthropic (Claude models)
   - Ollama (local models)
 - **NEW**: Use your team's coding standards to guide AI reviews
+- **NEW**: Switch between full-file assessments and diff-only reviews
+- **NEW**: Post AI feedback as inline PR comments on the touched lines
 - Customize AI prompts with PR diff context
 - Control comment behavior (active/closed, update existing comments)
 - Support for markdown formatting in comments
@@ -83,8 +85,12 @@ Add the task to your Azure Pipelines YAML:
       
       CODE CHANGES:
       {diff}
+      
+      ANALYSIS MODE: {analysisMode}
     maxTokens: '1000'
     temperature: '0.7'
+    analyzeChangesOnly: true          # Only send the diff hunks to the AI
+    enableInlineComments: true        # Leave inline comments anchored to the changed lines
     active: true
     allowedFileExtensions: '.cs, .sql, .ts, .js, .html' 
     exclusionString: 'ai-pr-ignore' 
@@ -104,8 +110,11 @@ Add the task to your Azure Pipelines YAML:
 - **ollamaApiEndpoint**: API endpoint URL for Ollama (default: http://localhost:11434)
 - **codingStandardsFile**: Path to a markdown file containing coding standards to guide the AI
 - **promptTemplate**: Template for the AI prompt (use {diff} to include PR changes and {standards} to include coding standards)
+- **promptTemplate placeholders**: `{diff}` inserts either the full file or the diff hunk, `{standards}` injects your coding standards, `{analysisMode}` resolves to `full` or `diff`
 - **maxTokens**: Maximum number of tokens for the AI response
 - **temperature**: Controls randomness in the AI response (0.0-1.0)
+- **maxFileSizeInLines**: Maximum number of lines sent per file or diff hunk (oversized inputs are truncated with a notice)
+- **analyzeChangesOnly**: When `true`, only the changed lines are analyzed; when `false`, the full file content is sent
 - **allowedFileExtentions**: Only files with these extentions will be included in the pr review
 - **exclusionString**: Files with this string in their content will be excluded from the pr review
 
@@ -118,6 +127,7 @@ Add the task to your Azure Pipelines YAML:
 - **updatePreviousComment**: Update existing comment if it exists
 - **pullRequestId**: Target pull request ID (defaults to current PR)
 - **repositoryId**: Target repository ID (defaults to current repo)
+- **enableInlineComments**: When `true`, AI feedback is left as inline review comments on the diff; otherwise a file-level thread is created
 
 
 
