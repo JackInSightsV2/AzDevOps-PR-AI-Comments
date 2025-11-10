@@ -60,14 +60,42 @@ export class AzureOpenAIService implements AIService {
       // Using the new Azure OpenAI API format
       const url = `${this.endpoint}/openai/deployments/${this.deploymentName}/chat/completions?api-version=2023-12-01-preview`;
       
+      // GPT-5 and newer models require max_completion_tokens, older models use max_tokens
+      const normalizedDeploymentName = this.deploymentName.trim().toLowerCase();
+      const gptVersionMatch = normalizedDeploymentName.match(/^gpt-(\d+)(\D|$)/);
+      const isGpt5OrNewer = (() => {
+        if (!gptVersionMatch) {
+          return false;
+        }
+        const numericPart = gptVersionMatch[1];
+        let versionNumber = parseInt(numericPart, 10);
+        if (Number.isNaN(versionNumber)) {
+          return false;
+        }
+        if (numericPart.length === 2 && numericPart[1] === '5') {
+          const major = parseInt(numericPart[0], 10);
+          if (!Number.isNaN(major)) {
+            versionNumber = major + 0.5;
+          }
+        }
+        return versionNumber >= 5;
+      })();
+      const requestBody: any = {
+        model: this.deploymentName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: temperature,
+      };
+      
+      // Use the appropriate parameter based on model version
+      if (isGpt5OrNewer) {
+        requestBody.max_completion_tokens = maxTokens;
+      } else {
+        requestBody.max_tokens = maxTokens;
+      }
+      
       const response = await axios.post(
         url,
-        {
-          model: this.deploymentName,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: maxTokens,
-          temperature: temperature,
-        },
+        requestBody,
         {
           headers: {
             'Content-Type': 'application/json',

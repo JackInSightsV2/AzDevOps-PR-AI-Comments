@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.15] - 2025-11-10
+
 ### Fixed
 - Fixed `allowedFileExtensions` parameter not working due to incorrect parameter name in code
 - The task.json defined `allowedFileExtensions` but the TypeScript code was reading `fileExtensions`
 - File extension filtering now works correctly as documented
+
+### Changed
+- Enhanced AzureOpenAIService to support GPT-5 model parameters
+- Updated AzureOpenAIService to conditionally use `max_completion_tokens` for GPT-5 and newer models, ensuring compatibility with different model versions
+- Refactored request body construction for clarity and maintainability
+- Added multiple new dependencies in package-lock.json for improved functionality
 
 ## [1.0.14] - 2025-08-08
 
