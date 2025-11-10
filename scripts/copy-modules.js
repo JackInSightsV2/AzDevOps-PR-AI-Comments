@@ -143,38 +143,46 @@ try {
     }
     
     // Note: All JSON files are now copied automatically with the JS/CJS files above
-    
+
     // Copy JS files from main directories (root, lib, out, etc.)
-    for (const jsDir of pkg.mainJsFiles) {
-      try {
-        const sourcePath = path.join(pkgPath, jsDir);
-        const destPath = path.join(destPkgPath, jsDir);
-        
-        if (fs.existsSync(sourcePath)) {
-          // Create destination directory
-          if (!fs.existsSync(destPath)) {
-            fs.mkdirSync(destPath, { recursive: true });
-          }
-          
-          // Copy JS, CJS, and JSON files (recursively, preserving structure, excluding test folders)
-          if (process.platform === 'win32') {
-            console.log(`Copying JS, CJS, and JSON files from ${sourcePath} to ${destPath}`);
-            // xcopy cannot filter recursively by extension while preserving folder structure in one call reliably.
-                                     // Use PowerShell to mirror .js, .cjs, and .json files, excluding test/dev folders.
-            const ps = `Get-ChildItem -Path "${sourcePath}" -Recurse -Include *.js,*.cjs,*.json | Where-Object { $_.FullName -notmatch '\\\\(test|tests|spec|specs|example|examples|demo|demos|benchmark|benchmarks|\\.nyc_output|coverage|docs)\\\\' } | ForEach-Object { $rel = $_.FullName.Substring('${sourcePath}'.length).TrimStart('\\'); $target = Join-Path "${destPath}" $rel; New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($target)) -Force > $null; Copy-Item $_.FullName $target -Force }`;
-            execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${ps}"`);
+      for (const jsDir of pkg.mainJsFiles) {
+        try {
+          const sourcePath = path.join(pkgPath, jsDir);
+          const destPath = path.join(destPkgPath, jsDir);
+
+          if (fs.existsSync(sourcePath)) {
+            // Create destination directory
+            if (!fs.existsSync(destPath)) {
+              fs.mkdirSync(destPath, { recursive: true });
+            }
+
+            // Copy JS, CJS, and JSON files (recursively, preserving structure, excluding test folders)
+            if (process.platform === 'win32') {
+              console.log(`Copying JS, CJS, and JSON files from ${sourcePath} to ${destPath}`);
+              // xcopy cannot filter recursively by extension while preserving folder structure in one call reliably.
+              // Use PowerShell to mirror .js, .cjs, and .json files, excluding test/dev folders.
+              const ps = `Get-ChildItem -Path "${sourcePath}" -Recurse -Include *.js,*.cjs,*.json | Where-Object { $_.FullName -notmatch '\\\\(test|tests|spec|specs|example|examples|demo|demos|benchmark|benchmarks|\\.nyc_output|coverage|docs)\\\\' } | ForEach-Object { $rel = $_.FullName.Substring('${sourcePath}'.length).TrimStart('\\'); $target = Join-Path "${destPath}" $rel; New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($target)) -Force > $null; Copy-Item $_.FullName $target -Force }`;
+              execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${ps}"`);
+            } else {
+              console.log(`Copying JS, CJS, and JSON files from ${sourcePath} to ${destPath}`);
+              // For Unix-like systems - include .js, .cjs, and .json files, excluding test/dev folders
+              const escapedSourcePath = sourcePath.replace(/"/g, '\\"');
+              const escapedDestPath = destPath.replace(/"/g, '\\"');
+              const findCommand = `cd "${escapedSourcePath}" && find . \\( -name "*.js" -o -name "*.cjs" -o -name "*.json" \\) -type f ` +
+                `! -path "*/test/*" ! -path "*/tests/*" ! -path "*/spec/*" ! -path "*/specs/*" ` +
+                `! -path "*/example/*" ! -path "*/examples/*" ! -path "*/demo/*" ! -path "*/demos/*" ` +
+                `! -path "*/benchmark/*" ! -path "*/benchmarks/*" ! -path "*/.nyc_output/*" ` +
+                `! -path "*/coverage/*" ! -path "*/docs/*" ` +
+                `-exec cp --parents -t "${escapedDestPath}" {} \\;`;
+              execSync(findCommand);
+            }
           } else {
-            console.log(`Copying JS, CJS, and JSON files from ${sourcePath} to ${destPath}`);
-                                     // For Unix-like systems - include .js, .cjs, and .json files, excluding test/dev folders
-            execSync(`find "${sourcePath}" \\( -name "*.js" -o -name "*.cjs" -o -name "*.json" \\) -type f ! -path "*/test/*" ! -path "*/tests/*" ! -path "*/spec/*" ! -path "*/specs/*" ! -path "*/example/*" ! -path "*/examples/*" ! -path "*/demo/*" ! -path "*/demos/*" ! -path "*/benchmark/*" ! -path "*/benchmarks/*" ! -path "*/.nyc_output/*" ! -path "*/coverage/*" ! -path "*/docs/*" -exec cp --parents -t "${destPkgPath}" {} \\;`);
+            console.log(`Source path ${sourcePath} doesn't exist, skipping`);
           }
-        } else {
-          console.log(`Source path ${sourcePath} doesn't exist, skipping`);
+        } catch (err) {
+          console.error(`Error copying JS files for ${pkg.name}: ${err.message}`);
         }
-      } catch (err) {
-        console.error(`Error copying JS files for ${pkg.name}: ${err.message}`);
       }
-    }
     
     // Remove problematic directories with $$ characters
     removeProblematicDirs(destPkgPath);
