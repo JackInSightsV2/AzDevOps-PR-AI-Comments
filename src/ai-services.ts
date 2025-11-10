@@ -60,14 +60,24 @@ export class AzureOpenAIService implements AIService {
       // Using the new Azure OpenAI API format
       const url = `${this.endpoint}/openai/deployments/${this.deploymentName}/chat/completions?api-version=2023-12-01-preview`;
       
+      // GPT-5 and newer models require max_completion_tokens, older models use max_tokens
+      const isGpt5OrNewer = this.deploymentName.toLowerCase().includes('gpt-5');
+      const requestBody: any = {
+        model: this.deploymentName,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: temperature,
+      };
+      
+      // Use the appropriate parameter based on model version
+      if (isGpt5OrNewer) {
+        requestBody.max_completion_tokens = maxTokens;
+      } else {
+        requestBody.max_tokens = maxTokens;
+      }
+      
       const response = await axios.post(
         url,
-        {
-          model: this.deploymentName,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: maxTokens,
-          temperature: temperature,
-        },
+        requestBody,
         {
           headers: {
             'Content-Type': 'application/json',
