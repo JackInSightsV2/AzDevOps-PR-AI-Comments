@@ -14,18 +14,20 @@ export interface AIService {
 // OpenAI implementation
 export class OpenAIService implements AIService {
   private client: any;
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model: string = 'gpt-4o') {
     // Lazy-load to avoid requiring 'openai' unless provider is used
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { OpenAI } = require('openai');
     this.client = new OpenAI({ apiKey });
+    this.model = model;
   }
 
   async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
     try {
       const response = await this.client.chat.completions.create({
-        model: 'gpt-4',
+        model: this.model,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxTokens,
         temperature: temperature,
@@ -123,7 +125,7 @@ export class GoogleAIService implements AIService {
   private apiKey: string;
   private model: string;
 
-  constructor(apiKey: string, model: string = 'gemini-pro') {
+  constructor(apiKey: string, model: string = 'gemini-1.5-pro') {
     this.apiKey = apiKey;
     this.model = model;
   }
@@ -174,7 +176,7 @@ export class VertexAIService implements AIService {
   private model: string;
   private vertexCtor?: any;
 
-  constructor(projectId: string, location: string = 'us-central1', model: string = 'gemini-pro') {
+  constructor(projectId: string, location: string = 'us-central1', model: string = 'gemini-1.5-pro') {
     this.projectId = projectId;
     this.location = location;
     this.model = model;
@@ -222,7 +224,7 @@ export class AnthropicService implements AIService {
   private client: any;
   private model: string;
 
-  constructor(apiKey: string, model: string = 'claude-3-opus-20240229') {
+  constructor(apiKey: string, model: string = 'claude-3.5-sonnet-20241022') {
     // Lazy-load to avoid requiring '@anthropic-ai/sdk' unless provider is used
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Anthropic } = require('@anthropic-ai/sdk');
@@ -315,18 +317,18 @@ export function createAIService(
   
   switch (provider) {
     case 'openai':
-      return new OpenAIService(apiKey);
+      return new OpenAIService(apiKey, modelName || 'gpt-4o');
     case 'azure':
       if (!apiEndpoint) {
         throw new Error('API endpoint is required for Azure OpenAI');
       }
       return new AzureOpenAIService(apiKey, apiEndpoint, modelName);
     case 'google':
-      return new GoogleAIService(apiKey, modelName);
+      return new GoogleAIService(apiKey, modelName || 'gemini-1.5-pro');
     case 'vertexai':
-      return new VertexAIService(apiKey, 'us-central1', modelName);
+      return new VertexAIService(apiKey, 'us-central1', modelName || 'gemini-1.5-pro');
     case 'anthropic':
-      return new AnthropicService(apiKey, modelName);
+      return new AnthropicService(apiKey, modelName || 'claude-3.5-sonnet-20241022');
     case 'ollama':
       if (!apiEndpoint) {
         throw new Error('API endpoint is required for Ollama');

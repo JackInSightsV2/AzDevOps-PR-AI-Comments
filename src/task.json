@@ -10,7 +10,7 @@
       "version": {
         "Major": 1,
         "Minor": 0,
-        "Patch": 21
+        "Patch": 22
       },
     "instanceNameFormat": "PR Comment",
     "inputs": [
@@ -54,7 +54,7 @@
         "label": "Model Name",
         "defaultValue": "",
         "required": false,
-        "helpMarkDown": "Specify the model name to use (e.g., gpt-4, claude-3-opus, gemini-pro)",
+        "helpMarkDown": "Specify the model name to use (e.g., gpt-4o, claude-3.5-sonnet-20241022, gemini-1.5-pro). Leave empty to use provider defaults.",
         "visibleRule": "useAIGeneration == true"
       },
       {
