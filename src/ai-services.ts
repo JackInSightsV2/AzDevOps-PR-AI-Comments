@@ -11,6 +11,43 @@ export interface AIService {
   generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse>;
 }
 
+// Helper function to determine if a model requires max_completion_tokens instead of max_tokens
+// GPT-5 and newer models, as well as o1, o3, o4 models require max_completion_tokens
+function requiresMaxCompletionTokens(modelName: string): boolean {
+  const normalizedModel = modelName.trim().toLowerCase();
+  
+  // Check for o1, o3, o4 models (reasoning models)
+  if (normalizedModel.startsWith('o1') || normalizedModel.startsWith('o3') || normalizedModel.startsWith('o4')) {
+    return true;
+  }
+  
+  // Check for GPT-5 and newer models
+  const gptVersionMatch = normalizedModel.match(/^gpt-(\d+)(\D|$)/);
+  if (gptVersionMatch) {
+    const numericPart = gptVersionMatch[1];
+    let versionNumber = parseInt(numericPart, 10);
+    if (Number.isNaN(versionNumber)) {
+      return false;
+    }
+    // Handle cases like gpt-5-mini where the version is "5"
+    if (versionNumber >= 5) {
+      return true;
+    }
+    // Handle cases like gpt-45 where it might be interpreted as 4.5
+    if (numericPart.length === 2 && numericPart[1] === '5') {
+      const major = parseInt(numericPart[0], 10);
+      if (!Number.isNaN(major)) {
+        versionNumber = major + 0.5;
+        if (versionNumber >= 5) {
+          return true;
+        }
+      }
+    }
+  }
+  
+  return false;
+}
+
 // OpenAI implementation
 export class OpenAIService implements AIService {
   private client: any;
@@ -26,12 +63,21 @@ export class OpenAIService implements AIService {
 
   async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
     try {
-      const response = await this.client.chat.completions.create({
+      // Build request body with appropriate parameter based on model
+      const requestBody: any = {
         model: this.model,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: maxTokens,
         temperature: temperature,
-      });
+      };
+      
+      // Use the appropriate parameter based on model version
+      if (requiresMaxCompletionTokens(this.model)) {
+        requestBody.max_completion_tokens = maxTokens;
+      } else {
+        requestBody.max_tokens = maxTokens;
+      }
+      
+      const response = await this.client.chat.completions.create(requestBody);
 
       return {
         content: response.choices[0]?.message?.content || 'No response generated',
@@ -62,26 +108,6 @@ export class AzureOpenAIService implements AIService {
       // Using the new Azure OpenAI API format
       const url = `${this.endpoint}/openai/deployments/${this.deploymentName}/chat/completions?api-version=2023-12-01-preview`;
       
-      // GPT-5 and newer models require max_completion_tokens, older models use max_tokens
-      const normalizedDeploymentName = this.deploymentName.trim().toLowerCase();
-      const gptVersionMatch = normalizedDeploymentName.match(/^gpt-(\d+)(\D|$)/);
-      const isGpt5OrNewer = (() => {
-        if (!gptVersionMatch) {
-          return false;
-        }
-        const numericPart = gptVersionMatch[1];
-        let versionNumber = parseInt(numericPart, 10);
-        if (Number.isNaN(versionNumber)) {
-          return false;
-        }
-        if (numericPart.length === 2 && numericPart[1] === '5') {
-          const major = parseInt(numericPart[0], 10);
-          if (!Number.isNaN(major)) {
-            versionNumber = major + 0.5;
-          }
-        }
-        return versionNumber >= 5;
-      })();
       const requestBody: any = {
         model: this.deploymentName,
         messages: [{ role: 'user', content: prompt }],
@@ -89,7 +115,7 @@ export class AzureOpenAIService implements AIService {
       };
       
       // Use the appropriate parameter based on model version
-      if (isGpt5OrNewer) {
+      if (requiresMaxCompletionTokens(this.deploymentName)) {
         requestBody.max_completion_tokens = maxTokens;
       } else {
         requestBody.max_tokens = maxTokens;

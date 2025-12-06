@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.23] - 2025-12-06
+
+### Fixed
+- Fixed OpenAI API error for GPT-5 models (e.g., `gpt-5-mini`) that require `max_completion_tokens` instead of `max_tokens`
+- Updated `OpenAIService` to automatically detect and use the correct parameter based on model version
+- Enhanced model detection to support reasoning models (`o1`, `o3`, `o4`) that also require `max_completion_tokens`
+- Improved `AzureOpenAIService` to use the same unified detection logic for consistency
+- System now maintains backward compatibility with older models (GPT-4, GPT-3, etc.) that use `max_tokens`
+
 ## [1.0.22] - 2025-12-04
 
 ### Fixed
