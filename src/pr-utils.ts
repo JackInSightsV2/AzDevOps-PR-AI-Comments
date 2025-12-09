@@ -374,38 +374,43 @@ async function getContentForObjectId(
 
   try {
     let contentStream: any;
+    
+    // First, try to get blob content directly using the object ID
+    // The objectId from PR iteration changes is a blob SHA, not a commit SHA
     try {
-      contentStream = await gitApi.getItemText(
+      console.log(`Attempting to get blob content for ${filePath} with objectId: ${objectId}`);
+      contentStream = await gitApi.getBlobContent(
         repositoryId,
-        filePath,
+        objectId,       // sha1 - the blob object ID
         project,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { version: objectId, versionType: GitVersionType.Commit } as any
+        true,           // download - return as downloadable content
+        filePath        // fileName - for content-disposition header
       );
-    } catch (err) {
-      console.warn(`getItemText failed for ${filePath}: ${err}`);
-      contentStream = await gitApi.getItemContent(
-        repositoryId,
-        filePath,
-        project,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { version: objectId, versionType: GitVersionType.Commit } as any
-      );
+    } catch (blobErr) {
+      console.warn(`getBlobContent failed for ${filePath}: ${blobErr}`);
+      
+      // Fallback: try getItemText with the file path directly (without version)
+      // This gets the file from the default branch, which may be different
+      try {
+        console.log(`Fallback: trying getItemText for ${filePath}`);
+        contentStream = await gitApi.getItemText(
+          repositoryId,
+          filePath,
+          project
+        );
+      } catch (itemErr) {
+        console.warn(`getItemText also failed for ${filePath}: ${itemErr}`);
+        return '';
+      }
     }
 
-    return await streamToString(contentStream);
+    const content = await streamToString(contentStream);
+    if (content) {
+      console.log(`✅ Successfully retrieved content for ${filePath} (${content.length} chars)`);
+    } else {
+      console.log(`⚠️ Retrieved empty content for ${filePath}`);
+    }
+    return content;
   } catch (error) {
     console.error(`Error retrieving content for ${filePath} (${objectId}): ${error}`);
     return '';

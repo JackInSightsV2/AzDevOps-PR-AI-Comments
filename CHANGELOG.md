@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.24] - 2025-01-09
+
+### Fixed
+- **Critical Fix**: Fixed empty `{diff}` placeholder issue where GPT API responses indicated no content was present
+- Fixed `getContentForObjectId` function incorrectly using `GitVersionType.Commit` with blob object IDs
+- Changed blob content retrieval to use `getBlobContent()` API method directly with blob SHA instead of treating it as a commit SHA
+- Added fallback mechanism to `getItemText` if blob retrieval fails
+- Enhanced logging for better debugging of content retrieval issues
+- This fix ensures that diff content is properly retrieved and populated in the prompt template
+
 ## [1.0.23] - 2025-12-06
 
 ### Fixed
