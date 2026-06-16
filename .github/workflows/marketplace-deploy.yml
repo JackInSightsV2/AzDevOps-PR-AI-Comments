@@ -1,0 +1,41 @@
+name: Deploy to Marketplace
+
+# Publishes the extension to the Visual Studio Marketplace when a version tag is pushed.
+# Only users with write access can push tags, so only maintainers can trigger a deploy.
+# The `production` environment adds a required-reviewer gate (configure in repo Settings).
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Verify tag matches manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST="$(node -p "require('./vss-extension.json').version")"
+          echo "Tag version: $TAG | Manifest version: $MANIFEST"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag v$TAG does not match vss-extension.json version $MANIFEST. Bump the version files to match the tag."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Publish to Marketplace
+        env:
+          AZDO_PAT: ${{ secrets.AZDO_PAT }}
+        run: npx tfx-cli@latest extension publish --publisher ByteInSights --token "$AZDO_PAT"
