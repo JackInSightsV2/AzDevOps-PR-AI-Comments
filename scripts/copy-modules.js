@@ -67,6 +67,35 @@ const packagesToCopy = allPackages
     return { name, mainJsFiles: [''] };
   }).flat();
 
+// Folders we never want to ship (tests, examples, coverage, docs, etc.)
+const EXCLUDED_FOLDER_NAMES = new Set([
+  'test', 'tests', 'spec', 'specs',
+  'example', 'examples', 'demo', 'demos',
+  'benchmark', 'benchmarks', '.nyc_output', 'coverage', 'docs',
+]);
+
+// Cross-platform recursive copy of files matching the given extensions,
+// preserving folder structure and skipping excluded folders. Pure Node so it
+// behaves identically on Windows, macOS, and Linux (no GNU/BSD cp differences).
+function copyFilesByExtension(sourceDir, destDir, extensions, { skipExcludedFolders = true } = {}) {
+  if (!fs.existsSync(sourceDir)) return;
+
+  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(sourceDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+
+    if (entry.isDirectory()) {
+      if (skipExcludedFolders && EXCLUDED_FOLDER_NAMES.has(entry.name)) continue;
+      copyFilesByExtension(srcPath, destPath, extensions, { skipExcludedFolders });
+    } else if (entry.isFile()) {
+      if (!extensions.some(ext => entry.name.endsWith(ext))) continue;
+      fs.mkdirSync(destDir, { recursive: true });
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 // Function to remove problematic directories
 function removeProblematicDirs(dirPath) {
   // Skip if directory doesn't exist
@@ -156,26 +185,10 @@ try {
               fs.mkdirSync(destPath, { recursive: true });
             }
 
-            // Copy JS, CJS, and JSON files (recursively, preserving structure, excluding test folders)
-            if (process.platform === 'win32') {
-              console.log(`Copying JS, CJS, and JSON files from ${sourcePath} to ${destPath}`);
-              // xcopy cannot filter recursively by extension while preserving folder structure in one call reliably.
-              // Use PowerShell to mirror .js, .cjs, and .json files, excluding test/dev folders.
-              const ps = `Get-ChildItem -Path "${sourcePath}" -Recurse -Include *.js,*.cjs,*.json | Where-Object { $_.FullName -notmatch '\\\\(test|tests|spec|specs|example|examples|demo|demos|benchmark|benchmarks|\\.nyc_output|coverage|docs)\\\\' } | ForEach-Object { $rel = $_.FullName.Substring('${sourcePath}'.length).TrimStart('\\'); $target = Join-Path "${destPath}" $rel; New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($target)) -Force > $null; Copy-Item $_.FullName $target -Force }`;
-              execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${ps}"`);
-            } else {
-              console.log(`Copying JS, CJS, and JSON files from ${sourcePath} to ${destPath}`);
-              // For Unix-like systems - include .js, .cjs, and .json files, excluding test/dev folders
-              const escapedSourcePath = sourcePath.replace(/"/g, '\\"');
-              const escapedDestPath = destPath.replace(/"/g, '\\"');
-              const findCommand = `cd "${escapedSourcePath}" && find . \\( -name "*.js" -o -name "*.cjs" -o -name "*.json" \\) -type f ` +
-                `! -path "*/test/*" ! -path "*/tests/*" ! -path "*/spec/*" ! -path "*/specs/*" ` +
-                `! -path "*/example/*" ! -path "*/examples/*" ! -path "*/demo/*" ! -path "*/demos/*" ` +
-                `! -path "*/benchmark/*" ! -path "*/benchmarks/*" ! -path "*/.nyc_output/*" ` +
-                `! -path "*/coverage/*" ! -path "*/docs/*" ` +
-                `-exec cp --parents -t "${escapedDestPath}" {} \\;`;
-              execSync(findCommand);
-            }
+            // Copy JS, CJS, and JSON files (recursively, preserving structure, excluding test folders).
+            // Pure Node implementation works identically on Windows, macOS, and Linux.
+            console.log(`Copying JS, CJS, and JSON files from ${sourcePath} to ${destPath}`);
+            copyFilesByExtension(sourcePath, destPath, ['.js', '.cjs', '.json']);
           } else {
             console.log(`Source path ${sourcePath} doesn't exist, skipping`);
           }
@@ -203,13 +216,8 @@ try {
             fs.copyFileSync(nestedPkgJson, path.join(nestedUuidDest, 'package.json'));
           }
 
-          // Copy all JS files recursively
-          if (process.platform === 'win32') {
-            const psNested = `Get-ChildItem -Path "${nestedUuidSrc}" -Recurse -Filter *.js | ForEach-Object { $rel = $_.FullName.Substring('${nestedUuidSrc}'.length).TrimStart('\\'); $target = Join-Path "${nestedUuidDest}" $rel; New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($target)) -Force > $null; Copy-Item $_.FullName $target -Force }`;
-            execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psNested}"`);
-          } else {
-            execSync(`find "${nestedUuidSrc}" -name "*.js" -type f -exec cp --parents -t "${nestedUuidDest}" {} \\;`);
-          }
+          // Copy all JS files recursively (cross-platform, pure Node)
+          copyFilesByExtension(nestedUuidSrc, nestedUuidDest, ['.js'], { skipExcludedFolders: false });
 
           // Create v4.js shim for legacy uuid structure
           const v4ShimPath = path.join(nestedUuidDest, 'v4.js');
