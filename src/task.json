@@ -134,15 +134,6 @@
         "visibleRule": "useAIGeneration == true"
       },
       {
-        "name": "analyzeChangesOnly",
-        "type": "boolean",
-        "defaultValue": false,
-        "label": "Analyze changed lines only",
-        "required": false,
-        "helpMarkDown": "If checked, only the changed lines in the pull request will be analyzed. Otherwise the full file content is used. (Per-file mode only; holistic review always uses annotated diffs.)",
-        "visibleRule": "useAIGeneration == true && reviewMode == perFile"
-      },
-      {
         "name": "reviewMode",
         "type": "pickList",
         "label": "Review Mode",
@@ -154,6 +145,15 @@
           "perFile": "Per-file (legacy)"
         },
         "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "analyzeChangesOnly",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Analyze changed lines only",
+        "required": false,
+        "helpMarkDown": "If checked, only the changed lines in the pull request will be analyzed. Otherwise the full file content is used. (Per-file mode only; holistic review always uses annotated diffs.)",
+        "visibleRule": "useAIGeneration == true && reviewMode == perFile"
       },
       {
         "name": "minSeverity",
