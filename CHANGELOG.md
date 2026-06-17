@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.1] - 2026-06-17
+
+### Fixed
+- Reordered `src/task.json` inputs so `reviewMode` precedes `analyzeChangesOnly`; Marketplace package validation requires an input referenced in a `visibleRule` to be defined earlier in the inputs array. (2.0.0 failed validation on upload and could not be published.)
+
 ## [2.0.0] - 2026-06-17
 
 Major release. AI review is now **holistic by default**: the reviewer reasons across the whole pull request rather than commenting file-by-file.
