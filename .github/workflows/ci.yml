@@ -1,0 +1,35 @@
+name: CI
+
+# Runs the typecheck and test suite on every push and pull request so breakage
+# is caught early, before a release tag triggers the deploy workflow.
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - 'v*'          # version tags are covered by the deploy workflow's test gate
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: bun test

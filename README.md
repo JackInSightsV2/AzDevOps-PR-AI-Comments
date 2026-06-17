@@ -104,7 +104,7 @@ Add the task to your Azure Pipelines YAML:
 
 - **useAIGeneration**: Enable AI-generated comments
 - **aiProvider**: Select the AI provider (openai, azure, google, vertexai, anthropic, ollama)
-- **modelName**: Specify the model name (e.g., gpt-4, claude-3-opus, gemini-pro)
+- **modelName**: Specify the model name (e.g., gpt-5.4, claude-sonnet-4-6, gemini-3-pro, qwen3). Leave empty for the provider's current default.
 - **apiKey**: API key for the selected provider (use pipeline variables for security)
 - **azureApiEndpoint**: Custom API endpoint URL for Azure OpenAI
 - **ollamaApiEndpoint**: API endpoint URL for Ollama (default: http://localhost:11434)
@@ -117,6 +117,20 @@ Add the task to your Azure Pipelines YAML:
 - **analyzeChangesOnly**: When `true`, only the changed lines are analyzed; when `false`, the full file content is sent
 - **allowedFileExtentions**: Only files with these extentions will be included in the pr review
 - **exclusionString**: Files with this string in their content will be excluded from the pr review
+
+#### Holistic Review Options
+
+When AI generation is enabled, the task defaults to a **holistic review**: the AI sees the entire pull request at once (all changed files plus the PR title/description, linked work items, existing human comments, and your coding standards), then posts a single summary thread plus line-anchored findings, each with a severity. Re-runs are deduplicated by a content fingerprint, so the same finding is not re-posted on every push and findings that no longer apply are closed.
+
+- **reviewMode**: `holistic` (default — whole-PR review with a summary + line-anchored findings) or `perFile` (the legacy behaviour that comments on each file independently). Existing pipelines that relied on the per-file behaviour can set `reviewMode: perFile`.
+- **minSeverity**: Findings below this severity (`info`, `low`, `medium`, `high`, `critical`) are not posted; the count of suppressed findings is noted in the summary. Default `low`.
+- **customInstructions**: Optional free-text guidance injected into the review prompt (e.g. "Focus on security; this is a React 18 codebase"). Do **not** use it to dictate output format.
+- **enableVerification**: When `true` (default), candidate findings are sent back to the model for a confirm-or-drop pass to suppress false positives (roughly doubles token cost).
+- **maxInputTokens**: Approximate input budget (chars/4) for a single review call. Pull requests larger than this are split into batches that are reviewed separately and then synthesised. Default `200000`.
+- **skipDraftPullRequests**: When `true`, the holistic review is skipped for draft PRs.
+- **debug**: When `true`, assembled prompts are written to the agent temp directory for troubleshooting.
+
+> In holistic mode the **promptTemplate** is only used if you customise it away from the default; the legacy `{diff}` placeholders are not substituted (the task assembles its own file context), and the structured JSON output contract is always enforced. If a malfunction occurs (API error, unparseable output), the task warns and reports `SucceededWithIssues` rather than failing the build — findings never gate the pipeline.
 
 #### Comment Options
 

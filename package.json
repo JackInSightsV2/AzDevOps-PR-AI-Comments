@@ -4,7 +4,7 @@
   "description": "Azure DevOps Extension for AI Generated PR Comments",
   "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "bun test",
     "clean": "node scripts/clean.js",
     "build": "npm run clean && npx tsc && npm run copy-task-json && npm run copy-node-modules",
     "copy-node-modules": "node scripts/copy-modules.js",

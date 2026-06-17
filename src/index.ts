@@ -4,7 +4,9 @@ import { Comment, CommentThreadStatus, CommentType, GitPullRequestCommentThread 
 import * as fs from 'fs'
 import * as path from 'path'
 import { createAIService } from './ai-services'
-import { getPullRequestDiff, getPullRequestFiles, PullRequestAnalysisTarget } from './pr-utils'
+import { getPullRequestDiff, getPullRequestFiles, getPullRequestContext, PullRequestAnalysisTarget } from './pr-utils'
+import { runHolisticReview, normalizeSeverity } from './review-orchestrator'
+import { postReview } from './review-poster'
 
 async function run() {
   try {
@@ -56,7 +58,31 @@ async function run() {
         
       // Get max file size in lines (defaults to 1500 if not specified)
       const maxFileSizeInLines = parseInt(tl.getInput('maxFileSizeInLines', false) ?? '1500');
-        
+
+      // Review mode: holistic (default) sees the whole PR at once and posts a
+      // summary + line-anchored findings; perFile preserves the legacy loop.
+      const reviewMode = (tl.getInput('reviewMode', false) ?? 'holistic').trim().toLowerCase();
+      if (reviewMode !== 'perfile') {
+        await runHolisticReviewMode(
+          connection,
+          gitApi,
+          repositoryId,
+          pullRequestId,
+          isActive,
+          {
+            aiProvider,
+            apiKey,
+            modelName,
+            apiEndpoint,
+            maxTokens,
+            temperature,
+            maxFileSizeInLines,
+            promptTemplate,
+          }
+        );
+        return;
+      }
+
       try {
         // Get coding standards if specified
         let codingStandards = '';
@@ -348,6 +374,127 @@ function savePromptToFile(prompt: string, aiProvider: string): void {
     console.log(`Prompt saved to: ${filePath}`);
   } catch (error) {
     console.log(`Error saving prompt to file: ${error}`);
+  }
+}
+
+// The legacy per-file default template. In holistic mode this is treated as
+// "not customized" so we use the built-in review instructions instead.
+const DEFAULT_PER_FILE_TEMPLATE = 'Review the following code file and provide constructive feedback:\n\n{diff}';
+
+interface HolisticArgs {
+  aiProvider: string;
+  apiKey: string;
+  modelName: string;
+  apiEndpoint: string;
+  maxTokens: number;
+  temperature: number;
+  maxFileSizeInLines: number;
+  promptTemplate: string;
+}
+
+// Orchestrates a holistic, whole-PR review: gather diffs + context, run the
+// orchestrator, then post a summary thread and line-anchored findings with
+// fingerprint dedup. Never hard-fails the task — malfunctions warn and set
+// SucceededWithIssues.
+async function runHolisticReviewMode(
+  connection: azdev.WebApi,
+  gitApi: any,
+  repositoryId: string,
+  pullRequestId: number,
+  isActive: boolean,
+  args: HolisticArgs
+): Promise<void> {
+  try {
+    // Skip drafts if requested.
+    const skipDraft = tl.getBoolInput('skipDraftPullRequests', false);
+    if (skipDraft) {
+      try {
+        const pr = await gitApi.getPullRequestById(pullRequestId);
+        if (pr?.isDraft) {
+          console.log('Pull request is a draft and skipDraftPullRequests is enabled - skipping review.');
+          return;
+        }
+      } catch (err) {
+        console.log(`Could not determine draft status (continuing): ${err}`);
+      }
+    }
+
+    // Holistic-mode inputs.
+    const minSeverity = normalizeSeverity(tl.getInput('minSeverity', false) ?? 'low');
+    const customInstructions = tl.getInput('customInstructions', false) ?? '';
+    // Default true; only an explicit "false" disables verification.
+    const enableVerification = ((tl.getInput('enableVerification', false) ?? 'true').trim().toLowerCase()) !== 'false';
+    const maxInputTokens = parseInt(tl.getInput('maxInputTokens', false) ?? '200000');
+    const debug = tl.getBoolInput('debug', false);
+
+    // Coding standards (optional).
+    let codingStandards = '';
+    const codingStandardsFile = tl.getPathInput('codingStandardsFile', false);
+    if (codingStandardsFile && tl.filePathSupplied('codingStandardsFile') && fs.existsSync(codingStandardsFile)) {
+      try {
+        codingStandards = fs.readFileSync(codingStandardsFile, 'utf8');
+        console.log(`Read coding standards file (${codingStandards.length} characters)`);
+      } catch (err: any) {
+        console.log(`Could not read coding standards file: ${err.message}`);
+      }
+    }
+
+    // In holistic mode the per-file default template is treated as unset; a
+    // genuinely customized template is used as the base instructions with the
+    // legacy placeholders stripped (holistic assembles its own file block).
+    const holisticTemplate =
+      args.promptTemplate && args.promptTemplate.trim() && args.promptTemplate !== DEFAULT_PER_FILE_TEMPLATE
+        ? args.promptTemplate.replace(/\{diff\}|\{standards\}|\{analysisMode\}/g, '').trim()
+        : undefined;
+
+    // Gather PR context and annotated diffs (changes-only, for line anchoring).
+    console.log('Gathering pull request context and diffs for holistic review...');
+    const context = await getPullRequestContext(connection, repositoryId, pullRequestId);
+    const analysisTargets = await getPullRequestDiff(connection, repositoryId, pullRequestId, undefined, args.maxFileSizeInLines);
+
+    const entries = Object.entries(analysisTargets);
+    if (entries.length === 1 && entries[0][0] === 'ERROR.txt') {
+      const message = entries[0][1]?.content ?? 'No files could be retrieved for analysis';
+      tl.warning(`Holistic review could not run: ${message}`);
+      tl.setResult(tl.TaskResult.SucceededWithIssues, message);
+      return;
+    }
+    if (entries.length === 0) {
+      tl.warning('Holistic review found no files to analyze.');
+      tl.setResult(tl.TaskResult.SucceededWithIssues, 'No files to analyze');
+      return;
+    }
+
+    const aiService = createAIService(args.aiProvider, args.apiKey, args.modelName, args.apiEndpoint);
+
+    const result = await runHolisticReview(aiService, analysisTargets, context, {
+      maxTokens: args.maxTokens,
+      temperature: args.temperature,
+      maxInputTokens,
+      minSeverity,
+      enableVerification,
+      customInstructions,
+      codingStandards,
+      promptTemplate: holisticTemplate,
+      onPrompt: debug ? (label, prompt) => savePromptToFile(`[${label}]\n\n${prompt}`, args.aiProvider) : undefined,
+    });
+
+    if (result.error && result.findings.length === 0 && !result.summary) {
+      tl.warning(`Holistic review malfunctioned: ${result.error}`);
+      tl.setResult(tl.TaskResult.SucceededWithIssues, result.error);
+      return;
+    }
+
+    await postReview(gitApi, repositoryId, pullRequestId, isActive, result);
+
+    if (result.degraded) {
+      tl.warning('Holistic review completed with degraded output (some parts could not be parsed).');
+      tl.setResult(tl.TaskResult.SucceededWithIssues, 'Review completed with degraded output');
+    }
+  } catch (error: any) {
+    // Reviewer is advisory infrastructure — never block the pipeline on a malfunction.
+    tl.warning(`Holistic review error: ${error?.message ?? error}`);
+    tl.setResult(tl.TaskResult.SucceededWithIssues, `Holistic review error: ${error?.message ?? error}`);
   }
 }
 

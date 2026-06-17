@@ -30,6 +30,12 @@ const buildTimeOnlyPackages = [
   'style-loader',     // build tool
   'ts-loader',        // build tool
   'mini-css-extract-plugin', // build tool (if present)
+  'typescript',       // build tool (tsc) - never required at task runtime
+  // react/react-dom/scheduler are declared deps but unused by the Node task
+  // runtime (this is a pipeline task, not a web bundle). No imports in src/.
+  'react',
+  'react-dom',
+  'scheduler',
 ];
 
 // Get ALL packages from node_modules

@@ -6,9 +6,24 @@ export interface AIResponse {
   error?: string;
 }
 
+// Optional per-call generation options. Kept optional so existing callers
+// (the legacy per-file path) keep working unchanged.
+export interface AIGenerateOptions {
+  // When true, ask the provider to return strict JSON. Providers whose SDK
+  // exposes a native JSON mode (OpenAI response_format) use it; the rest rely
+  // on prompt instructions, so the orchestrator must also instruct JSON in the
+  // prompt regardless.
+  jsonMode?: boolean;
+}
+
 // Base AI service interface
 export interface AIService {
-  generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse>;
+  generateComment(
+    prompt: string,
+    maxTokens: number,
+    temperature: number,
+    options?: AIGenerateOptions
+  ): Promise<AIResponse>;
 }
 
 // Helper function to determine if a model requires max_completion_tokens instead of max_tokens
@@ -48,12 +63,38 @@ function requiresMaxCompletionTokens(modelName: string): boolean {
   return false;
 }
 
+// Newer OpenAI models (GPT-5+, o-series) only accept the default temperature.
+// They are exactly the models that also require max_completion_tokens, so reuse
+// that detection rather than maintaining a second list.
+function openAiRejectsTemperature(modelName: string): boolean {
+  return requiresMaxCompletionTokens(modelName);
+}
+
+// Anthropic removed sampling parameters (temperature/top_p/top_k) on Opus 4.7,
+// Opus 4.8 and the Fable family — sending temperature returns a 400. Sonnet 4.6
+// and earlier still accept it. Detect the families that reject it.
+function anthropicRejectsTemperature(modelName: string): boolean {
+  const m = modelName.trim().toLowerCase();
+  if (m.includes('fable') || m.includes('mythos')) {
+    return true;
+  }
+  // claude-opus-4-7 / 4-8 (and any later opus 4.x ≥ 7) reject sampling params.
+  const opusMatch = m.match(/opus-4-(\d+)/);
+  if (opusMatch) {
+    const minor = parseInt(opusMatch[1], 10);
+    if (!Number.isNaN(minor) && minor >= 7) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // OpenAI implementation
 export class OpenAIService implements AIService {
   private client: any;
   private model: string;
 
-  constructor(apiKey: string, model: string = 'gpt-4o') {
+  constructor(apiKey: string, model: string = 'gpt-5.4') {
     // Lazy-load to avoid requiring 'openai' unless provider is used
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { OpenAI } = require('openai');
@@ -61,22 +102,37 @@ export class OpenAIService implements AIService {
     this.model = model;
   }
 
-  async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
+  async generateComment(
+    prompt: string,
+    maxTokens: number,
+    temperature: number,
+    options?: AIGenerateOptions
+  ): Promise<AIResponse> {
     try {
       // Build request body with appropriate parameter based on model
       const requestBody: any = {
         model: this.model,
         messages: [{ role: 'user', content: prompt }],
-        temperature: temperature,
       };
-      
-      // Use the appropriate parameter based on model version
+
+      // Newer reasoning models (GPT-5+, o-series) only accept the default
+      // temperature; sending a custom one 400s. Omit it for those.
+      if (!openAiRejectsTemperature(this.model)) {
+        requestBody.temperature = temperature;
+      }
+
+      // Use the appropriate token parameter based on model version
       if (requiresMaxCompletionTokens(this.model)) {
         requestBody.max_completion_tokens = maxTokens;
       } else {
         requestBody.max_tokens = maxTokens;
       }
-      
+
+      // Native JSON mode keeps the structured-output contract tight.
+      if (options?.jsonMode) {
+        requestBody.response_format = { type: 'json_object' };
+      }
+
       const response = await this.client.chat.completions.create(requestBody);
 
       return {
@@ -103,24 +159,37 @@ export class AzureOpenAIService implements AIService {
     this.deploymentName = deploymentName;
   }
 
-  async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
+  async generateComment(
+    prompt: string,
+    maxTokens: number,
+    temperature: number,
+    options?: AIGenerateOptions
+  ): Promise<AIResponse> {
     try {
       // Using the new Azure OpenAI API format
       const url = `${this.endpoint}/openai/deployments/${this.deploymentName}/chat/completions?api-version=2023-12-01-preview`;
-      
+
       const requestBody: any = {
         model: this.deploymentName,
         messages: [{ role: 'user', content: prompt }],
-        temperature: temperature,
       };
-      
+
+      // Newer reasoning deployments only accept the default temperature.
+      if (!openAiRejectsTemperature(this.deploymentName)) {
+        requestBody.temperature = temperature;
+      }
+
       // Use the appropriate parameter based on model version
       if (requiresMaxCompletionTokens(this.deploymentName)) {
         requestBody.max_completion_tokens = maxTokens;
       } else {
         requestBody.max_tokens = maxTokens;
       }
-      
+
+      if (options?.jsonMode) {
+        requestBody.response_format = { type: 'json_object' };
+      }
+
       const response = await axios.post(
         url,
         requestBody,
@@ -151,16 +220,29 @@ export class GoogleAIService implements AIService {
   private apiKey: string;
   private model: string;
 
-  constructor(apiKey: string, model: string = 'gemini-1.5-pro') {
+  constructor(apiKey: string, model: string = 'gemini-3-pro') {
     this.apiKey = apiKey;
     this.model = model;
   }
 
-  async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
+  async generateComment(
+    prompt: string,
+    maxTokens: number,
+    temperature: number,
+    options?: AIGenerateOptions
+  ): Promise<AIResponse> {
     try {
       // Using direct API call with axios instead of the DiscussServiceClient
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
-      
+
+      const generationConfig: any = {
+        temperature: temperature,
+        maxOutputTokens: maxTokens
+      };
+      if (options?.jsonMode) {
+        generationConfig.responseMimeType = 'application/json';
+      }
+
       const response = await axios.post(
         url,
         {
@@ -169,10 +251,7 @@ export class GoogleAIService implements AIService {
               parts: [{ text: prompt }]
             }
           ],
-          generationConfig: {
-            temperature: temperature,
-            maxOutputTokens: maxTokens
-          }
+          generationConfig
         },
         {
           headers: {
@@ -202,13 +281,18 @@ export class VertexAIService implements AIService {
   private model: string;
   private vertexCtor?: any;
 
-  constructor(projectId: string, location: string = 'us-central1', model: string = 'gemini-1.5-pro') {
+  constructor(projectId: string, location: string = 'us-central1', model: string = 'gemini-3-pro') {
     this.projectId = projectId;
     this.location = location;
     this.model = model;
   }
 
-  async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
+  async generateComment(
+    prompt: string,
+    maxTokens: number,
+    temperature: number,
+    options?: AIGenerateOptions
+  ): Promise<AIResponse> {
     try {
       // Lazy-load to avoid requiring '@google-cloud/vertexai' unless provider is used
       if (!this.vertexCtor) {
@@ -221,12 +305,17 @@ export class VertexAIService implements AIService {
         location: this.location,
       });
 
+      const generationConfig: any = {
+        maxOutputTokens: maxTokens,
+        temperature: temperature,
+      };
+      if (options?.jsonMode) {
+        generationConfig.responseMimeType = 'application/json';
+      }
+
       const generativeModel = vertexAI.preview.getGenerativeModel({
         model: this.model,
-        generationConfig: {
-          maxOutputTokens: maxTokens,
-          temperature: temperature,
-        },
+        generationConfig,
       });
 
       const result = await generativeModel.generateContent({
@@ -250,7 +339,7 @@ export class AnthropicService implements AIService {
   private client: any;
   private model: string;
 
-  constructor(apiKey: string, model: string = 'claude-3.5-sonnet-20241022') {
+  constructor(apiKey: string, model: string = 'claude-sonnet-4-6') {
     // Lazy-load to avoid requiring '@anthropic-ai/sdk' unless provider is used
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Anthropic } = require('@anthropic-ai/sdk');
@@ -258,20 +347,35 @@ export class AnthropicService implements AIService {
     this.model = model;
   }
 
-  async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
+  async generateComment(
+    prompt: string,
+    maxTokens: number,
+    temperature: number,
+    _options?: AIGenerateOptions
+  ): Promise<AIResponse> {
     try {
-      // Using the Anthropic SDK as shown in the example
-      const response = await this.client.messages.create({
+      // Using the Anthropic SDK as shown in the example. Note: structured JSON
+      // is driven by the prompt, not output_config.format — the bundled SDK
+      // predates that parameter, and prompt-based JSON is our cross-provider
+      // baseline anyway.
+      const requestBody: any = {
         model: this.model,
         max_tokens: maxTokens,
-        temperature: temperature,
         messages: [
           {
             role: 'user',
             content: prompt
           }
         ]
-      });
+      };
+
+      // Opus 4.7/4.8 and the Fable family reject sampling params (400). Only
+      // send temperature to models that still accept it.
+      if (!anthropicRejectsTemperature(this.model)) {
+        requestBody.temperature = temperature;
+      }
+
+      const response = await this.client.messages.create(requestBody);
 
       // Extract the text content safely
       let content = 'No response generated';
@@ -303,18 +407,30 @@ export class OllamaService implements AIService {
     this.model = model;
   }
 
-  async generateComment(prompt: string, maxTokens: number, temperature: number): Promise<AIResponse> {
+  async generateComment(
+    prompt: string,
+    maxTokens: number,
+    temperature: number,
+    options?: AIGenerateOptions
+  ): Promise<AIResponse> {
     try {
+      const requestBody: any = {
+        model: this.model,
+        prompt: prompt,
+        stream: false,
+        options: {
+          num_predict: maxTokens,
+          temperature: temperature,
+        },
+      };
+      // Ollama supports constrained JSON output via the top-level `format` field.
+      if (options?.jsonMode) {
+        requestBody.format = 'json';
+      }
+
       const response = await axios.post(
         `${this.endpoint}/api/generate`,
-        {
-          model: this.model,
-          prompt: prompt,
-          options: {
-            num_predict: maxTokens,
-            temperature: temperature,
-          },
-        }
+        requestBody
       );
 
       return {
@@ -343,23 +459,23 @@ export function createAIService(
   
   switch (provider) {
     case 'openai':
-      return new OpenAIService(apiKey, modelName || 'gpt-4o');
+      return new OpenAIService(apiKey, modelName || 'gpt-5.4');
     case 'azure':
       if (!apiEndpoint) {
         throw new Error('API endpoint is required for Azure OpenAI');
       }
       return new AzureOpenAIService(apiKey, apiEndpoint, modelName);
     case 'google':
-      return new GoogleAIService(apiKey, modelName || 'gemini-1.5-pro');
+      return new GoogleAIService(apiKey, modelName || 'gemini-3-pro');
     case 'vertexai':
-      return new VertexAIService(apiKey, 'us-central1', modelName || 'gemini-1.5-pro');
+      return new VertexAIService(apiKey, 'us-central1', modelName || 'gemini-3-pro');
     case 'anthropic':
-      return new AnthropicService(apiKey, modelName || 'claude-3.5-sonnet-20241022');
+      return new AnthropicService(apiKey, modelName || 'claude-sonnet-4-6');
     case 'ollama':
       if (!apiEndpoint) {
         throw new Error('API endpoint is required for Ollama');
       }
-      return new OllamaService(apiEndpoint, modelName);
+      return new OllamaService(apiEndpoint, modelName || 'qwen3');
     default:
       throw new Error(`Unsupported AI provider: ${provider}`);
   }

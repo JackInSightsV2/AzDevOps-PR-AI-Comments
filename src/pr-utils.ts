@@ -2,17 +2,32 @@ import * as azdev from 'azure-devops-node-api';
 import {
   GitPullRequestIterationChanges,
   VersionControlChangeType,
-  GitVersionType
+  GitVersionType,
+  CommentType
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Readable } from 'stream';
 import path from 'path';
-import { createTwoFilesPatch } from 'diff';
+import { structuredPatch } from 'diff';
 
 export interface PullRequestAnalysisTarget {
   content: string;
   isDiff: boolean;
   firstChangedLine?: number;
   truncated?: boolean;
+  // Right-file line numbers that were added/modified in this change. These are
+  // the only lines an inline finding may legitimately anchor to. Undefined for
+  // full-file targets (where we don't compute a diff).
+  changedLines?: number[];
+}
+
+// Contextual signals about the PR (beyond the diffs) fed to the holistic
+// reviewer so it can judge intent. Every field is best-effort: a failed fetch
+// yields an empty value rather than aborting the review.
+export interface PullRequestContext {
+  title: string;
+  description: string;
+  workItems: string[];
+  humanComments: string[];
 }
 
 type ChangeEntries = NonNullable<GitPullRequestIterationChanges['changeEntries']>;
@@ -125,18 +140,14 @@ export async function getPullRequestDiff(
         ? await getContentForObjectId(gitApi, repositoryId, project, basePath, baseObjectId)
         : '';
 
-      const patch = createTwoFilesPatch(
+      const annotated = buildAnnotatedDiff(
         basePath || filePath,
         filePath,
         baseContent ?? '',
-        newContent ?? '',
-        '',
-        '',
-        { context: 3 }
+        newContent ?? ''
       );
 
-      const firstChangedLine = extractFirstAddedLine(patch) ?? 1;
-      let diffContent = patch;
+      let diffContent = annotated.text;
       let truncated = false;
 
       const diffLines = diffContent.split('\n');
@@ -149,8 +160,9 @@ export async function getPullRequestDiff(
       fileDiffs[filePath] = {
         content: diffContent,
         isDiff: true,
-        firstChangedLine,
-        truncated
+        firstChangedLine: annotated.firstChangedLine ?? 1,
+        truncated,
+        changedLines: annotated.changedLines
       };
     }
 
@@ -292,14 +304,160 @@ export async function getPullRequestFiles(
   }
 }
 
-function extractFirstAddedLine(patch: string): number | undefined {
-  const match = patch.match(/^\@\@ [^+]*\+(\d+)(?:,(\d+))? \@\@/m);
-  if (!match) {
-    return undefined;
+/**
+ * Builds a unified diff where every emitted line is prefixed with its real
+ * new-file (right-side) line number, and collects the set of right-side line
+ * numbers that were added/modified. The line numbers let the AI cite an exact
+ * line, and `changedLines` lets the orchestrator validate that a cited line is
+ * a legitimate inline anchor (snap/drop otherwise).
+ *
+ * Format per line:
+ *   "   123 + added text"      (addition — anchorable, recorded in changedLines)
+ *   "       - removed text"    (deletion — no right-side line)
+ *   "   123   context text"    (unchanged context)
+ */
+export function buildAnnotatedDiff(
+  oldPath: string,
+  newPath: string,
+  oldStr: string,
+  newStr: string
+): { text: string; changedLines: number[]; firstChangedLine?: number } {
+  const patch = structuredPatch(oldPath, newPath, oldStr, newStr, '', '', { context: 3 });
+  const out: string[] = [];
+  const changedLines: number[] = [];
+  let firstChangedLine: number | undefined;
+
+  for (const hunk of patch.hunks) {
+    out.push(`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`);
+    let newLineNo = hunk.newStart;
+
+    for (const raw of hunk.lines) {
+      const marker = raw[0];
+      const text = raw.slice(1);
+
+      if (marker === '+') {
+        out.push(`${String(newLineNo).padStart(6)} + ${text}`);
+        changedLines.push(newLineNo);
+        if (firstChangedLine === undefined) {
+          firstChangedLine = newLineNo;
+        }
+        newLineNo++;
+      } else if (marker === '-') {
+        // Removed line — exists only on the left/base side, no right-file number.
+        out.push(`${' '.repeat(6)} - ${text}`);
+      } else if (marker === '\\') {
+        // "\ No newline at end of file" — metadata, not a real line.
+        out.push(`${' '.repeat(6)}   ${text}`);
+      } else {
+        // Context line (leading space).
+        out.push(`${String(newLineNo).padStart(6)}   ${text}`);
+        newLineNo++;
+      }
+    }
   }
 
-  const parsed = parseInt(match[1], 10);
-  return Number.isNaN(parsed) ? undefined : parsed;
+  return { text: out.join('\n'), changedLines, firstChangedLine };
+}
+
+/**
+ * Best-effort fetch of contextual signals about the PR (title, description,
+ * linked work items, existing human comments) for the holistic reviewer. Each
+ * source is fetched independently; a failure logs a warning and yields an empty
+ * value rather than aborting the review.
+ */
+export async function getPullRequestContext(
+  connection: azdev.WebApi,
+  repositoryId: string,
+  pullRequestId: number,
+  project?: string
+): Promise<PullRequestContext> {
+  const ctx: PullRequestContext = { title: '', description: '', workItems: [], humanComments: [] };
+
+  let gitApi: any;
+  try {
+    gitApi = await connection.getGitApi();
+  } catch (error) {
+    console.log(`⚠️ Could not connect to Git API for PR context: ${error}`);
+    return ctx;
+  }
+
+  // Title + description
+  try {
+    const pr = await gitApi.getPullRequestById(pullRequestId, project);
+    ctx.title = pr?.title ?? '';
+    ctx.description = pr?.description ?? '';
+  } catch (error) {
+    console.log(`⚠️ Could not fetch PR title/description: ${error}`);
+  }
+
+  // Linked work items (acceptance criteria etc.)
+  try {
+    const refs = await gitApi.getPullRequestWorkItemRefs(repositoryId, pullRequestId, project);
+    const ids = (refs ?? [])
+      .map((r: any) => parseInt(r.id, 10))
+      .filter((n: number) => !Number.isNaN(n));
+    if (ids.length > 0) {
+      const witApi = await connection.getWorkItemTrackingApi();
+      const items = await witApi.getWorkItems(
+        ids,
+        ['System.WorkItemType', 'System.Title', 'System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria']
+      );
+      for (const wi of items ?? []) {
+        const fields = wi.fields ?? {};
+        const type = fields['System.WorkItemType'] ?? 'Work Item';
+        const title = fields['System.Title'] ?? '';
+        const desc = stripHtml(fields['System.Description'] ?? '');
+        const ac = stripHtml(fields['Microsoft.VSTS.Common.AcceptanceCriteria'] ?? '');
+        let entry = `${type} #${wi.id}: ${title}`;
+        if (desc) {
+          entry += `\n  ${desc}`;
+        }
+        if (ac) {
+          entry += `\n  Acceptance criteria: ${ac}`;
+        }
+        ctx.workItems.push(entry);
+      }
+    }
+  } catch (error) {
+    console.log(`⚠️ Could not fetch linked work items: ${error}`);
+  }
+
+  // Existing human comments (skip our own machine-posted threads)
+  try {
+    const threads = await gitApi.getThreads(repositoryId, pullRequestId, project);
+    for (const thread of threads ?? []) {
+      const props = thread.properties ?? {};
+      if (props['PullRequestCommentTask'] || props['AiReviewFinding'] || props['AiReviewSummary']) {
+        continue;
+      }
+      for (const comment of thread.comments ?? []) {
+        if (comment.commentType === CommentType.System) {
+          continue;
+        }
+        const content = (comment.content ?? '').trim();
+        if (content) {
+          ctx.humanComments.push(content);
+        }
+      }
+    }
+  } catch (error) {
+    console.log(`⚠️ Could not fetch existing PR threads: ${error}`);
+  }
+
+  return ctx;
+}
+
+/** Strips HTML tags and decodes the most common entities from work-item fields. */
+function stripHtml(input: string): string {
+  return input
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 async function loadLatestIterationChanges(
