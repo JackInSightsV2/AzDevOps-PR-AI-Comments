@@ -54,7 +54,7 @@
         "label": "Model Name",
         "defaultValue": "",
         "required": false,
-        "helpMarkDown": "Specify the model name to use (e.g., gpt-4o, claude-3.5-sonnet-20241022, gemini-1.5-pro). Leave empty to use provider defaults.",
+        "helpMarkDown": "Specify the model name to use (e.g., gpt-5.4, claude-sonnet-4-6, gemini-3-pro, qwen3). Leave empty to use provider defaults.",
         "visibleRule": "useAIGeneration == true"
       },
       {
@@ -109,10 +109,10 @@
       {
         "name": "maxTokens",
         "type": "string",
-        "label": "Max Tokens",
-        "defaultValue": "1000",
+        "label": "Max Output Tokens",
+        "defaultValue": "8000",
         "required": false,
-        "helpMarkDown": "Maximum number of tokens for the AI response",
+        "helpMarkDown": "Maximum number of tokens for the AI response. Holistic reviews need headroom for a summary plus multiple findings.",
         "visibleRule": "useAIGeneration == true"
       },
       {
@@ -139,7 +139,85 @@
         "defaultValue": false,
         "label": "Analyze changed lines only",
         "required": false,
-        "helpMarkDown": "If checked, only the changed lines in the pull request will be analyzed. Otherwise the full file content is used.",
+        "helpMarkDown": "If checked, only the changed lines in the pull request will be analyzed. Otherwise the full file content is used. (Per-file mode only; holistic review always uses annotated diffs.)",
+        "visibleRule": "useAIGeneration == true && reviewMode == perFile"
+      },
+      {
+        "name": "reviewMode",
+        "type": "pickList",
+        "label": "Review Mode",
+        "defaultValue": "holistic",
+        "required": false,
+        "helpMarkDown": "Holistic: the AI sees the whole pull request at once and posts a summary plus line-anchored findings with severity (recommended). Per-file: the legacy behaviour that comments on each file independently.",
+        "options": {
+          "holistic": "Holistic (whole-PR review)",
+          "perFile": "Per-file (legacy)"
+        },
+        "visibleRule": "useAIGeneration == true"
+      },
+      {
+        "name": "minSeverity",
+        "type": "pickList",
+        "label": "Minimum Severity",
+        "defaultValue": "low",
+        "required": false,
+        "helpMarkDown": "Findings below this severity are not posted (their count is noted in the summary). Holistic mode only.",
+        "options": {
+          "info": "Info",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "critical": "Critical"
+        },
+        "visibleRule": "useAIGeneration == true && reviewMode != perFile"
+      },
+      {
+        "name": "customInstructions",
+        "type": "multiLine",
+        "properties": {
+          "resizable": true,
+          "rows": "3"
+        },
+        "label": "Custom Review Instructions",
+        "defaultValue": "",
+        "required": false,
+        "helpMarkDown": "Optional free-text guidance injected into the holistic review prompt (e.g. 'Focus on security; this is a React 18 codebase'). Do not use this to dictate output format.",
+        "visibleRule": "useAIGeneration == true && reviewMode != perFile"
+      },
+      {
+        "name": "enableVerification",
+        "type": "boolean",
+        "defaultValue": true,
+        "label": "Enable verification pass",
+        "required": false,
+        "helpMarkDown": "If checked, candidate findings are sent back to the model for a confirm-or-drop critic pass to suppress false positives (roughly doubles token cost). Holistic mode only.",
+        "visibleRule": "useAIGeneration == true && reviewMode != perFile"
+      },
+      {
+        "name": "maxInputTokens",
+        "type": "string",
+        "label": "Max Input Tokens",
+        "defaultValue": "200000",
+        "required": false,
+        "helpMarkDown": "Approximate input budget (chars/4) for the holistic review. Pull requests larger than this are split into batches that are reviewed separately and then synthesised.",
+        "visibleRule": "useAIGeneration == true && reviewMode != perFile"
+      },
+      {
+        "name": "skipDraftPullRequests",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Skip draft pull requests",
+        "required": false,
+        "helpMarkDown": "If checked, the holistic review is skipped for pull requests marked as draft.",
+        "visibleRule": "useAIGeneration == true && reviewMode != perFile"
+      },
+      {
+        "name": "debug",
+        "type": "boolean",
+        "defaultValue": false,
+        "label": "Debug (save prompts to disk)",
+        "required": false,
+        "helpMarkDown": "If checked, assembled prompts are written to the agent temp directory for troubleshooting.",
         "visibleRule": "useAIGeneration == true"
       },
       {
