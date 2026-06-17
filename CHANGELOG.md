@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.0] - 2026-06-17
+
+Major release. AI review is now **holistic by default**: the reviewer reasons across the whole pull request rather than commenting file-by-file.
+
+### Added
+- **Holistic review mode** (`reviewMode`, default `holistic`): the AI sees all changed files at once, plus the PR title/description, linked work items (incl. acceptance criteria), existing human comments, and your coding standards, then posts a single summary thread plus line-anchored findings.
+- **Severity-rated findings** with a `minSeverity` filter (`info`/`low`/`medium`/`high`/`critical`); suppressed counts are noted in the summary.
+- **Idempotent re-runs**: findings are fingerprinted (line-number-independent) so they aren't re-posted on each push; the summary is updated in place and findings that no longer apply are auto-closed.
+- **Verification pass** (`enableVerification`, default on): a confirm-or-drop critic step that suppresses false positives.
+- **Large-PR batching** (`maxInputTokens`): oversized pull requests are split, reviewed in parts, and synthesised into one summary.
+- New inputs: `customInstructions`, `skipDraftPullRequests`, `debug` (writes assembled prompts to the agent temp dir).
+- Annotated diffs that prefix each line with its real right-file line number, enabling precise inline anchoring with snap-to-changed-line resolution.
+- Best-effort PR context retrieval (`getPullRequestContext`) covering title, description, work items, and human comments.
+- Cross-provider JSON output mode (`jsonMode`) using each provider's native structured-output support where available.
+- Unit test suite under `tests/` (orchestrator, poster, diff utils) plus GitHub Actions CI (typecheck + `bun test`) and a marketplace-deploy workflow gated on the same tests and a tag/manifest version check.
+
+### Changed
+- **Default behaviour**: holistic review replaces the per-file loop. The legacy behaviour remains available via `reviewMode: perFile`.
+- The reviewer is now advisory and **never fails the build** — malfunctions warn and report `SucceededWithIssues`.
+- `maxTokens` default raised to `8000` to accommodate a summary plus multiple findings.
+- Refactored into dedicated layers: `review-orchestrator.ts` (review pipeline) and `review-poster.ts` (thread reconciliation) alongside the existing entry point, provider abstraction, and PR utilities.
+- Updated provider/model handling: newer OpenAI reasoning models and recent Anthropic models that reject sampling parameters are detected and have `temperature` omitted automatically.
+
+### Migration
+- The task major version is now `2`. Azure DevOps keys task references on the major version, so pipelines using `prAiProvider@1` stay on the latest 1.x and do **not** auto-upgrade — change the reference to `prAiProvider@2` to adopt v2.
+- Once on `@2`, review is holistic by default. To preserve the previous per-file behaviour, set `reviewMode: perFile`. The `promptTemplate`, `analyzeChangesOnly`, and `enableInlineComments` inputs apply to per-file mode only.
+
+## [1.0.25] - 2026-06-16
+
+### Added
+- Marketplace deploy workflow and a `bump-version` helper that keeps `package.json`, `vss-extension.json`, and `src/task.json` in sync (#22).
+
 ## [1.0.24] - 2025-01-09
 
 ### Fixed
