@@ -123,3 +123,5 @@ dist
 .claude/
 CLAUDE.md
 CLAUDE.local.md
+.agents/
+skills-lock.json
