@@ -246,6 +246,23 @@ describe('parseReviewJson — alternate schemas (coercion)', () => {
     expect(r!.findings[0].title).toBe('Off-by-one in the loop bound');
     expect(r!.findings[0].body).toBe('Off-by-one in the loop bound');
   });
+
+  // A clean PR ("no issues") must not be mistaken for a parse failure / degraded.
+  test('an empty standard object is a valid (empty) review, not null', () => {
+    const r = parseReviewJson('{"summary":"","findings":[]}');
+    expect(r).not.toBeNull();
+    expect(r!.findings.length).toBe(0);
+  });
+
+  test('all-empty grouped object is a valid "no issues" review, not null', () => {
+    const r = parseReviewJson('{"security_vulnerabilities":[],"performance_problems":[],"null_reference_risks":[]}');
+    expect(r).not.toBeNull();
+    expect(r!.findings.length).toBe(0);
+  });
+
+  test('an object with no review structure is still null', () => {
+    expect(parseReviewJson('{"foo":"bar","baz":1}')).toBeNull();
+  });
 });
 
 describe('stripReasoning', () => {

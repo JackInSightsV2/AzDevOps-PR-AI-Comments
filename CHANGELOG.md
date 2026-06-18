@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.4] - 2026-06-18
+
+### Fixed
+- Per-file mode no longer posts a thread when the model declines to comment: empty responses and `NO_COMMENT`-style sentinels (which some prompt templates instruct the model to return for clean files) are now skipped instead of posted verbatim. (#25)
+- A holistic review that parses to a recognizable but empty result (e.g. `{"summary":"","findings":[]}` or all-empty category groups) is now reported as "no issues found" rather than degrading to a parse-failure warning. (#25)
+
 ## [2.0.3] - 2026-06-18
 
 ### Fixed

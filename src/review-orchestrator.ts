@@ -304,6 +304,7 @@ export function coerceReview(parsed: any): { summary: string; findings: RawFindi
   }
   if (!parsed || typeof parsed !== 'object') return null;
 
+  const hasSummaryField = typeof parsed.summary === 'string' || typeof parsed.overview === 'string';
   const summary = typeof parsed.summary === 'string'
     ? parsed.summary
     : typeof parsed.overview === 'string'
@@ -312,26 +313,36 @@ export function coerceReview(parsed: any): { summary: string; findings: RawFindi
 
   // A recognized container key wins outright.
   let findings: RawFinding[] | null = null;
+  let recognized = hasSummaryField;
   for (const key of FINDING_CONTAINER_KEYS) {
     if (Array.isArray(parsed[key])) {
       findings = collectFindings(parsed[key]);
+      recognized = true;
       break;
     }
   }
 
   // Otherwise treat every array-of-objects property as a finding group, using
-  // its key to seed severity (the category-grouped shape from issue #25).
+  // its key to seed severity (the category-grouped shape from issue #25). An
+  // all-empty grouped object (every value an array) is still a recognizable
+  // "no issues found" review, not a parse failure.
   if (findings === null) {
     const collected: RawFinding[] = [];
+    const values = Object.values(parsed);
     for (const [key, value] of Object.entries(parsed)) {
       if (Array.isArray(value) && value.some((v) => v && typeof v === 'object')) {
         collected.push(...collectFindings(value as any[], key));
       }
     }
     findings = collected;
+    if (values.length > 0 && values.every((v) => Array.isArray(v))) {
+      recognized = true;
+    }
   }
 
-  if (summary || findings.length > 0) {
+  // Return a (possibly empty) review whenever the structure is recognizable; an
+  // empty review means "no issues", which must not degrade to a parse failure.
+  if (recognized || findings.length > 0) {
     return { summary, findings };
   }
   return null;

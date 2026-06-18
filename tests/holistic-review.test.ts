@@ -237,6 +237,19 @@ describe('runHolisticReview — alternate schema recovery', () => {
     expect(result.findings[0].line).toBe(10);
   });
 
+  test('an all-empty grouped review is "no issues found", not degraded', async () => {
+    const ai = new FakeAIService([
+      JSON.stringify({ security_vulnerabilities: [], performance_problems: [], null_reference_risks: [] }),
+    ]);
+    const targets = { 'src/a.ts': target('   10 + ok', [10]) };
+
+    const result = await runHolisticReview(ai, targets, emptyContext, opts());
+
+    expect(result.degraded).toBe(false);
+    expect(result.error).toBeUndefined();
+    expect(result.findings.length).toBe(0);
+  });
+
   test('a file-less finding is anchored to the sole reviewed file', async () => {
     const ai = new FakeAIService([
       review('s', [{ line: 10, severity: 'high', title: 'No file given', body: 'x', snippet: 'a' }]),

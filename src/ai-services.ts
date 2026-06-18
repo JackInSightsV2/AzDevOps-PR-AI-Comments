@@ -26,6 +26,20 @@ export interface AIService {
   ): Promise<AIResponse>;
 }
 
+/**
+ * True when an AI review response means "nothing to say", so no comment should
+ * be posted: an empty body, or a NO_COMMENT-style sentinel. Some prompt
+ * templates instruct the model to reply NO_COMMENT when a file is clean, and
+ * posting that verbatim creates a useless thread (issue #25).
+ */
+export function isNoComment(content: string | undefined): boolean {
+  if (!content) return true;
+  // Drop surrounding whitespace and markdown/quote decoration before matching.
+  const stripped = content.replace(/[`*_"'>\s]/g, '');
+  if (!stripped) return true;
+  return /^no[_-]?comments?[.!]?$/i.test(stripped);
+}
+
 // Helper function to determine if a model requires max_completion_tokens instead of max_tokens
 // GPT-5 and newer models, as well as o1, o3, o4 models require max_completion_tokens
 function requiresMaxCompletionTokens(modelName: string): boolean {

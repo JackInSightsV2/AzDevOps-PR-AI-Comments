@@ -3,7 +3,7 @@ import azdev = require('azure-devops-node-api')
 import { Comment, CommentThreadStatus, CommentType, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces'
 import * as fs from 'fs'
 import * as path from 'path'
-import { createAIService } from './ai-services'
+import { createAIService, isNoComment } from './ai-services'
 import { getPullRequestDiff, getPullRequestFiles, getPullRequestContext, PullRequestAnalysisTarget } from './pr-utils'
 import { runHolisticReview, normalizeSeverity } from './review-orchestrator'
 import { postReview } from './review-poster'
@@ -181,7 +181,14 @@ async function run() {
               console.log(`Error generating AI comment for ${filePath}: ${aiResponse.error}`);
               continue;
             }
-            
+
+            // Skip files the model had nothing to say about (empty or NO_COMMENT)
+            // instead of posting an empty/sentinel thread.
+            if (isNoComment(aiResponse.content)) {
+              console.log(`No actionable feedback for ${filePath} - skipping comment`);
+              continue;
+            }
+
             // Create a thread for this file
             let fileCommentContent = `**AI Review for ${filePath}**\n\n${aiResponse.content}`;
             if (analysisTarget.truncated) {
