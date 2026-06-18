@@ -119,6 +119,9 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+# Cloned test sandbox repo (Azure DevOps "Coding Examples")
+/Coding Examples/
+
 # Claude Code
 .claude/
 CLAUDE.md

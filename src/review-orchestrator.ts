@@ -192,10 +192,52 @@ export function fingerprintFinding(file: string, severity: Severity, title: stri
  * code fences or surrounded by prose. Returns null if no parseable object with
  * the expected shape is found.
  */
+/**
+ * Removes <think>...</think> reasoning blocks emitted by reasoning models
+ * (qwen3, deepseek-r1, etc.). Their tokens routinely contain stray braces and
+ * quotes that corrupt JSON extraction (issues #21/#25). Also drops a dangling
+ * unclosed <think> whose reasoning ran to the end of the output.
+ */
+export function stripReasoning(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/i, '')
+    .trim();
+}
+
+/**
+ * Returns the first balanced {...} object span, ignoring braces that appear
+ * inside JSON string literals. More robust than first-`{`/last-`}` when the
+ * model wraps the object in prose or emits trailing text after it.
+ */
+export function firstBalancedObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 export function parseReviewJson(raw: string): { summary: string; findings: RawFinding[] } | null {
   if (!raw) return null;
 
-  let text = raw.trim();
+  let text = stripReasoning(raw.trim());
 
   // Strip ```json ... ``` or ``` ... ``` fences.
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -203,8 +245,10 @@ export function parseReviewJson(raw: string): { summary: string; findings: RawFi
     text = fence[1].trim();
   }
 
-  // Fall back to the outermost {...} span.
+  // Try the whole text, then the first balanced object, then the outermost span.
   const candidates: string[] = [text];
+  const balanced = firstBalancedObject(text);
+  if (balanced) candidates.push(balanced);
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace > firstBrace) {
@@ -505,12 +549,14 @@ Respond with a single JSON object and nothing else:
 
 export function parseConfirmedIndices(raw: string): number[] | null {
   if (!raw) return null;
-  let text = raw.trim();
+  let text = stripReasoning(raw.trim());
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) text = fence[1].trim();
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
-  const candidate = firstBrace !== -1 && lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1) : text;
+  const candidate =
+    firstBalancedObject(text) ??
+    (firstBrace !== -1 && lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1) : text);
   try {
     const obj = JSON.parse(candidate);
     if (obj && Array.isArray(obj.confirmed)) {

@@ -10,6 +10,8 @@ import {
   parseReviewJson,
   parseConfirmedIndices,
   dedupeByFingerprint,
+  stripReasoning,
+  firstBalancedObject,
   ResolvedFinding,
 } from '../src/review-orchestrator';
 
@@ -166,6 +168,49 @@ describe('parseReviewJson', () => {
     expect(parseReviewJson('not json at all')).toBeNull();
     expect(parseReviewJson('')).toBeNull();
   });
+
+  // Reasoning models (qwen3, deepseek-r1) emit <think> blocks — issues #21/#25.
+  test('parses JSON after a <think> reasoning block', () => {
+    const raw = '<think>Let me look at {this} and decide. The user wants {json}.</think>\n{"summary":"s","findings":[]}';
+    const r = parseReviewJson(raw);
+    expect(r).not.toBeNull();
+    expect(r!.summary).toBe('s');
+  });
+
+  test('parses JSON when reasoning block precedes a fenced object', () => {
+    const raw = '<think>reasoning with a stray } brace</think>\n```json\n{"summary":"ok","findings":[]}\n```';
+    const r = parseReviewJson(raw);
+    expect(r).not.toBeNull();
+    expect(r!.summary).toBe('ok');
+  });
+
+  test('ignores trailing prose after the object (balanced extraction)', () => {
+    const raw = '{"summary":"s","findings":[{"file":"a","severity":"high","title":"t","body":"has } brace in text"}]}\nHope this helps {really}!';
+    const r = parseReviewJson(raw);
+    expect(r).not.toBeNull();
+    expect(r!.findings[0].body).toBe('has } brace in text');
+  });
+});
+
+describe('stripReasoning', () => {
+  test('removes a closed think block', () => {
+    expect(stripReasoning('<think>nope</think>answer')).toBe('answer');
+  });
+  test('removes a dangling unclosed think block', () => {
+    expect(stripReasoning('before <think>runs to end')).toBe('before');
+  });
+  test('leaves plain text untouched', () => {
+    expect(stripReasoning('just text')).toBe('just text');
+  });
+});
+
+describe('firstBalancedObject', () => {
+  test('extracts a balanced object ignoring braces in strings', () => {
+    expect(firstBalancedObject('x {"a":"}{"} y')).toBe('{"a":"}{"}');
+  });
+  test('returns null when no object present', () => {
+    expect(firstBalancedObject('no braces here')).toBeNull();
+  });
 });
 
 describe('parseConfirmedIndices', () => {
@@ -179,5 +224,9 @@ describe('parseConfirmedIndices', () => {
 
   test('returns null when missing', () => {
     expect(parseConfirmedIndices('nope')).toBeNull();
+  });
+
+  test('extracts after a <think> reasoning block', () => {
+    expect(parseConfirmedIndices('<think>indices {0,1}?</think>{"confirmed":[0,1]}')).toEqual([0, 1]);
   });
 });

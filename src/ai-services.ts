@@ -418,6 +418,10 @@ export class OllamaService implements AIService {
         model: this.model,
         prompt: prompt,
         stream: false,
+        // Disable reasoning output. Thinking models (e.g. qwen3) otherwise emit
+        // <think>...</think> tokens that corrupt the JSON the orchestrator parses
+        // (see issues #21/#25). Ignored by models that don't support thinking.
+        think: false,
         options: {
           num_predict: maxTokens,
           temperature: temperature,

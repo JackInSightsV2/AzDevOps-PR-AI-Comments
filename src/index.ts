@@ -40,7 +40,9 @@ async function run() {
       // Get AI configuration
       const aiProvider = tl.getInput('aiProvider', true) ?? 'openai';
       const modelName = tl.getInput('modelName', false) ?? '';
-      const apiKey = tl.getInput('apiKey', true) ?? '';
+      // apiKey is not required for Ollama (local models need no key). For every
+      // other provider, createAIService throws a clear error if it's missing.
+      const apiKey = tl.getInput('apiKey', false) ?? '';
       
       // Get the appropriate API endpoint based on the provider
       let apiEndpoint = '';
