@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.3] - 2026-06-18
+
+### Fixed
+- Holistic reviews from weaker/local models (e.g. Ollama) are no longer discarded as "degraded" when the model returns valid JSON in a non-standard shape. The parser now coerces common variants into findings: category-grouped objects (e.g. `security_vulnerabilities`/`performance_problems`, with severity inferred from the group name), aliased container keys (`issues`/`problems`/`comments`), bare top-level arrays, and per-finding field aliases (`message`/`description` → body, `path`/`fileName` → file, `lineNumber` → line). (#25)
+- A finding that omits its file is now anchored to the reviewed file when the pull request touches only one file, instead of being dropped.
+
+### Changed
+- Marketplace publish step uses `--no-wait-validation`; the validation long-poll was flaky (`ECONNRESET` on slow validations marked successful deploys as failed). The extension still goes live once server-side validation passes.
+
+## [2.0.2] - 2026-06-18
+
+### Fixed
+- Hardened structured-output parsing for reasoning models (qwen3, deepseek-r1): `<think>…</think>` blocks (including a dangling unclosed one) are stripped before parsing, and the JSON object is extracted by brace-balanced scanning that ignores braces inside strings, so stray braces in prose/reasoning no longer corrupt extraction. (#21/#25)
+
 ## [2.0.1] - 2026-06-17
 
 ### Fixed

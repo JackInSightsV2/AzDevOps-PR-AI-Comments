@@ -218,6 +218,38 @@ describe('runHolisticReview — large PR batching + synthesis', () => {
   });
 });
 
+describe('runHolisticReview — alternate schema recovery', () => {
+  test('category-grouped output is coerced into findings instead of degrading', async () => {
+    const ai = new FakeAIService([
+      JSON.stringify({
+        performance_problems: [
+          { file: 'src/a.ts', line: 10, message: 'slow query' },
+        ],
+      }),
+    ]);
+    const targets = { 'src/a.ts': target('   10 + slow', [10]) };
+
+    const result = await runHolisticReview(ai, targets, emptyContext, opts());
+
+    expect(result.degraded).toBe(false);
+    expect(result.findings.length).toBe(1);
+    expect(result.findings[0].body).toBe('slow query');
+    expect(result.findings[0].line).toBe(10);
+  });
+
+  test('a file-less finding is anchored to the sole reviewed file', async () => {
+    const ai = new FakeAIService([
+      review('s', [{ line: 10, severity: 'high', title: 'No file given', body: 'x', snippet: 'a' }]),
+    ]);
+    const targets = { 'src/only.ts': target('   10 + a', [10]) };
+
+    const result = await runHolisticReview(ai, targets, emptyContext, opts());
+
+    expect(result.findings.length).toBe(1);
+    expect(result.findings[0].file).toBe('src/only.ts');
+  });
+});
+
 describe('runHolisticReview — no files', () => {
   test('returns an error result when there is nothing to review', async () => {
     const ai = new FakeAIService([]);

@@ -192,6 +192,62 @@ describe('parseReviewJson', () => {
   });
 });
 
+describe('parseReviewJson — alternate schemas (coercion)', () => {
+  // Weak/local models often return valid JSON in a shape other than
+  // {summary, findings}. Rather than discard it as "degraded" (issue #25),
+  // coerce the common variants.
+
+  test('coerces category-grouped findings and infers severity from the key', () => {
+    const raw = JSON.stringify({
+      security_vulnerabilities: [{ file: 'a.cs', line: 5, message: 'SQLi risk' }],
+      performance_problems: [{ file: 'a.cs', line: 10, message: 'slow query' }],
+      null_reference_risks: [],
+    });
+    const r = parseReviewJson(raw);
+    expect(r).not.toBeNull();
+    expect(r!.findings.length).toBe(2);
+    const perf = r!.findings.find((f) => f.body === 'slow query')!;
+    expect(perf.file).toBe('a.cs');
+    expect(perf.line).toBe(10);
+    expect(normalizeSeverity(perf.severity)).toBe('medium'); // performance -> medium
+    const sec = r!.findings.find((f) => f.body === 'SQLi risk')!;
+    expect(normalizeSeverity(sec.severity)).toBe('high'); // security -> high
+  });
+
+  test('accepts an aliased container key (issues) and message/description fields', () => {
+    const raw = JSON.stringify({
+      summary: 's',
+      issues: [{ file: 'a', severity: 'high', title: 't', message: 'm' }],
+    });
+    const r = parseReviewJson(raw);
+    expect(r).not.toBeNull();
+    expect(r!.summary).toBe('s');
+    expect(r!.findings[0].body).toBe('m');
+    expect(r!.findings[0].title).toBe('t');
+  });
+
+  test('maps description -> body when body is absent', () => {
+    const raw = '{"summary":"s","findings":[{"file":"a","severity":"low","title":"t","description":"d"}]}';
+    const r = parseReviewJson(raw);
+    expect(r!.findings[0].body).toBe('d');
+  });
+
+  test('accepts a bare top-level array of findings', () => {
+    const raw = '[{"file":"a","severity":"high","title":"t","body":"b"}]';
+    const r = parseReviewJson(raw);
+    expect(r).not.toBeNull();
+    expect(r!.summary).toBe('');
+    expect(r!.findings[0].file).toBe('a');
+  });
+
+  test('derives a title from the message when none is given', () => {
+    const raw = '{"findings":[{"file":"a","message":"Off-by-one in the loop bound"}]}';
+    const r = parseReviewJson(raw);
+    expect(r!.findings[0].title).toBe('Off-by-one in the loop bound');
+    expect(r!.findings[0].body).toBe('Off-by-one in the loop bound');
+  });
+});
+
 describe('stripReasoning', () => {
   test('removes a closed think block', () => {
     expect(stripReasoning('<think>nope</think>answer')).toBe('answer');

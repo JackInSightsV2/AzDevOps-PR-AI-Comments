@@ -55,6 +55,10 @@ jobs:
         run: bun run build
 
       - name: Publish to Marketplace
+        # --no-wait-validation: tfx uploads and returns immediately instead of
+        # long-polling the Marketplace validation endpoint. The poll is flaky
+        # (ECONNRESET on slow validations marked good deploys as failed); the
+        # extension still goes live once async validation passes server-side.
         env:
           AZDO_PAT: ${{ secrets.AZDO_PAT }}
-        run: npx tfx-cli@latest extension publish --publisher ByteInSights --token "$AZDO_PAT"
+        run: npx tfx-cli@latest extension publish --publisher ByteInSights --token "$AZDO_PAT" --no-wait-validation

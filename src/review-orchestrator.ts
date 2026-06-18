@@ -234,6 +234,109 @@ export function firstBalancedObject(text: string): string | null {
   return null;
 }
 
+// Container keys (besides "findings") that weaker models use for the issue list.
+const FINDING_CONTAINER_KEYS = ['findings', 'issues', 'problems', 'comments', 'review_comments', 'reviewComments'];
+
+function asText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+// Infers a severity from a category/group key (e.g. "performance_problems")
+// when the finding itself doesn't carry one. Returns undefined when unknown so
+// normalizeSeverity can apply its own default.
+function severityFromKey(key: string): string | undefined {
+  const k = key.toLowerCase();
+  if (k.includes('critical') || k.includes('blocker')) return 'critical';
+  if (k.includes('security') || k.includes('vulnerab') || k.includes('inject')) return 'high';
+  if (k.includes('bug') || k.includes('correctness') || k.includes('error') || k.includes('null') || k.includes('crash')) return 'high';
+  if (k.includes('perf')) return 'medium';
+  if (k.includes('style') || k.includes('nit') || k.includes('suggest') || k.includes('info')) return 'low';
+  return undefined;
+}
+
+// Maps a single loosely-shaped object to a RawFinding, tolerating the common
+// field-name variants different models emit. `categoryKey`, when present, names
+// the group the item came from and seeds the severity/title.
+function normalizeRawFinding(item: any, categoryKey?: string): RawFinding | null {
+  if (!item || typeof item !== 'object') return null;
+
+  const file = asText(item.file ?? item.path ?? item.filePath ?? item.fileName ?? item.filename);
+
+  const lineRaw = item.line ?? item.lineNumber ?? item.line_number ?? item.lineNo;
+  let line: number | undefined;
+  if (typeof lineRaw === 'number') line = lineRaw;
+  else if (typeof lineRaw === 'string' && /^\d+$/.test(lineRaw.trim())) line = parseInt(lineRaw, 10);
+
+  const severity = asText(item.severity ?? item.level ?? severityFromKey(categoryKey ?? '') ?? '');
+  const message = asText(item.message ?? item.detail ?? item.explanation ?? item.comment);
+  const body = asText(item.body ?? item.description ?? '') || message;
+  const title = asText(item.title ?? item.issue ?? '').trim()
+    || body.split('\n')[0].slice(0, 120)
+    || categoryKey
+    || 'Finding';
+  const snippet = asText(item.snippet ?? item.code ?? item.lineContent);
+
+  if (!title && !body) return null;
+  return { file, line, severity, title, body, snippet: snippet || undefined };
+}
+
+function collectFindings(arr: any[], categoryKey?: string): RawFinding[] {
+  const out: RawFinding[] = [];
+  for (const item of arr) {
+    const f = normalizeRawFinding(item, categoryKey);
+    if (f) out.push(f);
+  }
+  return out;
+}
+
+/**
+ * Coerces a parsed JSON value into our { summary, findings } shape, accepting
+ * the schema variants weaker models produce: a bare findings array, an aliased
+ * container key, or category-grouped arrays (e.g. "performance_problems"),
+ * plus per-finding field aliases. Returns null when nothing usable is present.
+ */
+export function coerceReview(parsed: any): { summary: string; findings: RawFinding[] } | null {
+  if (Array.isArray(parsed)) {
+    const findings = collectFindings(parsed);
+    return findings.length > 0 ? { summary: '', findings } : null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+
+  const summary = typeof parsed.summary === 'string'
+    ? parsed.summary
+    : typeof parsed.overview === 'string'
+      ? parsed.overview
+      : '';
+
+  // A recognized container key wins outright.
+  let findings: RawFinding[] | null = null;
+  for (const key of FINDING_CONTAINER_KEYS) {
+    if (Array.isArray(parsed[key])) {
+      findings = collectFindings(parsed[key]);
+      break;
+    }
+  }
+
+  // Otherwise treat every array-of-objects property as a finding group, using
+  // its key to seed severity (the category-grouped shape from issue #25).
+  if (findings === null) {
+    const collected: RawFinding[] = [];
+    for (const [key, value] of Object.entries(parsed)) {
+      if (Array.isArray(value) && value.some((v) => v && typeof v === 'object')) {
+        collected.push(...collectFindings(value as any[], key));
+      }
+    }
+    findings = collected;
+  }
+
+  if (summary || findings.length > 0) {
+    return { summary, findings };
+  }
+  return null;
+}
+
 export function parseReviewJson(raw: string): { summary: string; findings: RawFinding[] } | null {
   if (!raw) return null;
 
@@ -245,7 +348,8 @@ export function parseReviewJson(raw: string): { summary: string; findings: RawFi
     text = fence[1].trim();
   }
 
-  // Try the whole text, then the first balanced object, then the outermost span.
+  // Try the whole text, then the first balanced object, then the outermost
+  // object span, then a bare array span.
   const candidates: string[] = [text];
   const balanced = firstBalancedObject(text);
   if (balanced) candidates.push(balanced);
@@ -254,17 +358,16 @@ export function parseReviewJson(raw: string): { summary: string; findings: RawFi
   if (firstBrace !== -1 && lastBrace > firstBrace) {
     candidates.push(text.slice(firstBrace, lastBrace + 1));
   }
+  const firstBracket = text.indexOf('[');
+  const lastBracket = text.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    candidates.push(text.slice(firstBracket, lastBracket + 1));
+  }
 
   for (const candidate of candidates) {
     try {
-      const obj = JSON.parse(candidate);
-      if (obj && typeof obj === 'object') {
-        const summary = typeof obj.summary === 'string' ? obj.summary : '';
-        const findings = Array.isArray(obj.findings) ? (obj.findings as RawFinding[]) : [];
-        if (summary || findings.length > 0) {
-          return { summary, findings };
-        }
-      }
+      const result = coerceReview(JSON.parse(candidate));
+      if (result) return result;
     } catch {
       // try next candidate
     }
@@ -473,22 +576,30 @@ function resolveFindings(
   raw: RawFinding[],
   analysisTargets: Record<string, PullRequestAnalysisTarget>
 ): ResolvedFinding[] {
+  // When a model omits the file but only one file was reviewed, the finding can
+  // only belong to that file — attach it rather than dropping it. (Coerced
+  // alternate-schema output frequently lacks a per-finding file; issue #25.)
+  const fileKeys = Object.keys(analysisTargets).filter((k) => k !== 'ERROR.txt');
+  const soleFile = fileKeys.length === 1 ? fileKeys[0] : undefined;
+
   const out: ResolvedFinding[] = [];
   for (const f of raw) {
-    if (!f || !f.file || !f.title) continue;
-    const target = analysisTargets[f.file];
+    if (!f || !f.title) continue;
+    const file = f.file || soleFile;
+    if (!file) continue;
+    const target = analysisTargets[file];
     const severity = normalizeSeverity(f.severity);
     const line = resolveAnchor(
       typeof f.line === 'number' ? f.line : undefined,
       target?.changedLines
     );
     out.push({
-      file: f.file,
+      file,
       line,
       severity,
       title: f.title,
       body: f.body ?? '',
-      fingerprint: fingerprintFinding(f.file, severity, f.title, f.snippet)
+      fingerprint: fingerprintFinding(file, severity, f.title, f.snippet)
     });
   }
   return out;
