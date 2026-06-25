@@ -35,7 +35,7 @@ https://marketplace.visualstudio.com/items?itemName=ByteInSights.DevOps-AI-PR-Ex
 - **Rich PR context** — the reviewer is given the PR title/description, linked work items (incl. acceptance criteria), existing human comments, and your team's coding standards
 - **Large-PR batching** — pull requests over the input budget are split, reviewed in parts, and synthesised into one summary
 - **Never blocks the build** — the reviewer is advisory: API errors or unparseable output warn and report `SucceededWithIssues` rather than failing the pipeline
-- **Multiple AI providers** — OpenAI, Azure OpenAI, Google AI (Gemini), Google Vertex AI, Anthropic (Claude), and Ollama (local models)
+- **Multiple AI providers** — OpenAI, OpenAI-compatible, Azure OpenAI, Google AI (Gemini), Google Vertex AI, Anthropic (Claude), and Ollama (local models)
 - **Legacy per-file mode** — the original "one comment per file" behaviour is still available via `reviewMode: perFile`, including inline/diff-only comments
 - Static (non-AI) comments, markdown file comments, and comment-behaviour controls (active/closed, add-once, update-existing) are still supported
 
@@ -154,6 +154,18 @@ All examples below run a **holistic review** (the default). For a complete worki
     customInstructions: 'Focus on security and data-access correctness. This is a .NET 8 + EF Core service.'
     minSeverity: 'medium'        # only post medium and above
     active: true
+```
+
+### Using OpenAI-compatible
+
+```yaml
+- task: prAiProvider@2
+  inputs:
+    useAIGeneration: true
+    aiProvider: 'openaicompatible'
+    modelName: 'gpt-5'           # your deployment name
+    apiKey: '$(OPENAI_COMPATIBLE_API_KEY)'
+    openaiCompatibleApiEndpoint: 'https://your-resource.openai.compatible.com'
 ```
 
 ### Using Azure OpenAI
