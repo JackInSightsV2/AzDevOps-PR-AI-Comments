@@ -103,16 +103,25 @@ function anthropicRejectsTemperature(modelName: string): boolean {
   return false;
 }
 
+// OpenAI client config
+type OpenAIClientConfig = {
+    apiKey: string;
+    baseURL?: string;
+};
+
 // OpenAI implementation
 export class OpenAIService implements AIService {
-  private client: any;
-  private model: string;
+  protected client: any;
+  protected model: string;
 
-  constructor(apiKey: string, model: string = 'gpt-5.4') {
+  constructor(config: OpenAIClientConfig, model: string = 'gpt-5.4') {
     // Lazy-load to avoid requiring 'openai' unless provider is used
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { OpenAI } = require('openai');
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({
+        apiKey: config.apiKey,
+        ...(config.baseURL ? { baseURL: config.baseURL } : {})
+    });                                
     this.model = model;
   }
 
@@ -159,6 +168,14 @@ export class OpenAIService implements AIService {
       };
     }
   }
+}
+
+// OpenAI-compatible implementation
+export class OpenAICompatibleService extends OpenAIService implements AIService {
+
+    constructor(endpoint: string, apiKey: string, model: string) {
+        super({ apiKey, baseURL: endpoint }, model);
+    }
 }
 
 // Azure OpenAI implementation
@@ -477,12 +494,17 @@ export function createAIService(
   
   switch (provider) {
     case 'openai':
-      return new OpenAIService(apiKey, modelName || 'gpt-5.4');
+      return new OpenAIService({ apiKey }, modelName || 'gpt-5.4');
     case 'azure':
       if (!apiEndpoint) {
         throw new Error('API endpoint is required for Azure OpenAI');
       }
       return new AzureOpenAIService(apiKey, apiEndpoint, modelName);
+	case 'openaicompatible':
+	  if (!apiEndpoint) {
+		throw new Error('API endpoint is required for OpenAI-Compatible');
+	  }
+	  return new OpenAICompatibleService(apiEndpoint, apiKey, modelName); 
     case 'google':
       return new GoogleAIService(apiKey, modelName || 'gemini-3-pro');
     case 'vertexai':
