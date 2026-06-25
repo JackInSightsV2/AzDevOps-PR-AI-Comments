@@ -21,7 +21,6 @@ async function run() {
       console.log(`No pull request id - skipping PR comment`)
       return
     }
-    const repositoryId: string | undefined = tl.getInput('repositoryId', false) ?? tl.getVariable('Build.Repository.ID') ?? ''
 
     // Set up Azure DevOps connection
     const accessToken = tl.getEndpointAuthorizationParameter('SystemVssConnection', 'AccessToken', false) ?? ''
