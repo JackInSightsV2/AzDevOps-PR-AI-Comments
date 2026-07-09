@@ -31,6 +31,7 @@
         "helpMarkDown": "Select the AI provider to use for generating comments.",
         "options": {
           "openai": "OpenAI",
+		  "openaicompatible": "OpenAI-compatible",
           "azure": "Azure OpenAI",
           "google": "Google AI",
           "vertexai": "Google Vertex AI",
@@ -74,6 +75,15 @@
         "required": false,
         "helpMarkDown": "Custom API endpoint URL for Azure OpenAI",
         "visibleRule": "useAIGeneration == true && aiProvider == azure"
+      },
+      {
+        "name": "openaiCompatibleApiEndpoint",
+        "type": "string",
+        "label": "OpenAI-Compatible API Endpoint",
+        "defaultValue": "",
+        "required": false,
+        "helpMarkDown": "Custom API endpoint URL for OpenAI-Compatible",
+        "visibleRule": "useAIGeneration == true && aiProvider == openaicompatible"
       },
       {
         "name": "ollamaApiEndpoint",

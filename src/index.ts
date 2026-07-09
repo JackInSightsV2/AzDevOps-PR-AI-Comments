@@ -58,6 +58,9 @@ async function run() {
       } else if (aiProvider === 'ollama') {
         apiEndpoint = tl.getInput('ollamaApiEndpoint', false) ?? 'http://localhost:11434';
       }
+	  else if (aiProvider === 'openaicompatible') {
+		apiEndpoint = tl.getInput('openaiCompatibleApiEndpoint', false) ?? '';
+	  }
         
       const promptTemplate = tl.getInput('promptTemplate', false) ?? 'Review the following code file and provide constructive feedback:\n\n{diff}';
       const maxTokens = parseInt(tl.getInput('maxTokens', false) ?? '1000');
