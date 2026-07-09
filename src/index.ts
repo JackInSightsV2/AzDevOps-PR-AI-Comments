@@ -14,14 +14,13 @@ async function run() {
     const useAIGeneration = tl.getBoolInput('useAIGeneration', false);
     let commentContent: string | undefined = undefined;
 
-    // Get PR information first as we'll need it for both paths
+    // Get PR Id first as we'll need it for both paths
     const pullRequestInput: string | undefined = tl.getInput('pullRequestId', false) ?? tl.getVariable('System.PullRequest.PullRequestId') ?? '-1'
     const pullRequestId = parseInt(pullRequestInput)
     if (pullRequestId < 0) {
       console.log(`No pull request id - skipping PR comment`)
       return
     }
-    const repositoryId: string | undefined = tl.getInput('repositoryId', false) ?? tl.getVariable('Build.Repository.ID') ?? ''
 
     // Set up Azure DevOps connection
     const accessToken = tl.getEndpointAuthorizationParameter('SystemVssConnection', 'AccessToken', false) ?? ''
@@ -32,6 +31,14 @@ async function run() {
     // Get the Git API
     const gitApi = await connection.getGitApi();
     const isActive = tl.getBoolInput('active', false);
+	
+	// Get Repository Id
+	let repositoryId: string | undefined = tl.getInput('repositoryId', false) ?? ''
+
+	if (repositoryId == '') {
+		const pullRequest = await gitApi.getPullRequestById(pullRequestId);
+		repositoryId = pullRequest.repository?.id ?? tl.getVariable('Build.Repository.ID') ?? '';
+	}
 
     // If AI generation is enabled, generate the comment using the selected provider
     if (useAIGeneration) {
